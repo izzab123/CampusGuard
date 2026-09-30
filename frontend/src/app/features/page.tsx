@@ -162,15 +162,19 @@ export default function FeaturesPage() {
 
           {/* Right Action Buttons */}
           <div className="flex items-center gap-3">
-            <button className="bg-blue-700 hover:bg-blue-800 text-white text-sm font-semibold px-4 py-2 rounded-md shadow-xs transition duration-150 cursor-pointer">
+            <Link
+              href="/login"
+              className="bg-blue-700 hover:bg-blue-800 text-white text-sm font-semibold px-4 py-2 rounded-md shadow-xs transition duration-150 cursor-pointer"
+            >
               Login
-            </button>
-            <button
+            </Link>
+            <Link
+              href="/login"
               aria-label="User Profile"
               className="w-9 h-9 rounded-full bg-blue-700 hover:bg-blue-800 flex items-center justify-center text-white shadow-xs transition duration-150 cursor-pointer"
             >
               <User className="w-4 h-4" />
-            </button>
+            </Link>
           </div>
         </div>
       </header>
@@ -330,7 +334,7 @@ export default function FeaturesPage() {
             <Link href="/#contact" className="hover:text-blue-700 transition">
               Contact
             </Link>
-            <Link href="/#login" className="hover:text-blue-700 transition">
+            <Link href="/login" className="hover:text-blue-700 transition">
               Login
             </Link>
           </nav>
