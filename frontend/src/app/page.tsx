@@ -60,15 +60,19 @@ export default function HomePage() {
 
           {/* Right Action Buttons */}
           <div className="flex items-center gap-3">
-            <button className="bg-blue-700 hover:bg-blue-800 text-white text-sm font-semibold px-5 py-2 rounded-md shadow-xs transition duration-150 cursor-pointer">
+            <Link
+              href="/login"
+              className="bg-blue-700 hover:bg-blue-800 text-white text-sm font-semibold px-5 py-2 rounded-md shadow-xs transition duration-150 cursor-pointer"
+            >
               Login
-            </button>
-            <button
+            </Link>
+            <Link
+              href="/login"
               aria-label="User Profile"
               className="w-9 h-9 rounded-full bg-blue-700 hover:bg-blue-800 flex items-center justify-center text-white shadow-xs transition duration-150 cursor-pointer"
             >
               <User className="w-4 h-4" />
-            </button>
+            </Link>
           </div>
         </div>
       </header>
@@ -114,10 +118,13 @@ export default function HomePage() {
 
               {/* CTA Row */}
               <div className="flex flex-wrap items-center gap-3 sm:gap-4 mb-8">
-                <button className="bg-[#0f2c64] hover:bg-[#0b224d] text-white text-sm font-semibold px-6 py-3 rounded-lg flex items-center gap-2 shadow-sm transition duration-150 cursor-pointer">
+                <Link
+                  href="/login"
+                  className="bg-[#0f2c64] hover:bg-[#0b224d] text-white text-sm font-semibold px-6 py-3 rounded-lg flex items-center gap-2 shadow-sm transition duration-150 cursor-pointer"
+                >
                   <span>Login to CampusGuard</span>
                   <ArrowRight className="w-4 h-4" />
-                </button>
+                </Link>
 
                 <button className="bg-white hover:bg-slate-50 border border-slate-300 text-slate-700 text-sm font-medium px-4 py-3 rounded-lg flex items-center gap-2 transition duration-150 cursor-pointer">
                   <Lock className="w-4 h-4 text-slate-500" />
@@ -564,7 +571,7 @@ export default function HomePage() {
               <a href="#about" className="hover:text-blue-700 transition">About</a>
               <Link href="/features" className="hover:text-blue-700 transition">Features</Link>
               <a href="#about" className="hover:text-blue-700 transition">Contact</a>
-              <a href="#home" className="hover:text-blue-700 transition">Login</a>
+              <Link href="/login" className="hover:text-blue-700 transition">Login</Link>
               <span className="text-emerald-600 font-semibold flex items-center gap-1">
                 <span className="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
                 System Status
