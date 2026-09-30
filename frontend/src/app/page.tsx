@@ -49,12 +49,12 @@ export default function HomePage() {
               >
                 Features
               </Link>
-              <a
-                href="#about"
+              <Link
+                href="/about"
                 className="px-4 py-1.5 rounded-md text-sm font-medium text-slate-700 hover:text-slate-900 transition"
               >
                 About
-              </a>
+              </Link>
             </div>
           </nav>
 
