@@ -1,4 +1,5 @@
 import React from "react";
+import Link from "next/link";
 import {
   Shield,
   ShieldCheck,
@@ -24,45 +25,47 @@ export default function HomePage() {
       <header className="sticky top-0 z-40 bg-white/95 backdrop-blur-md border-b border-slate-200">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
           {/* Brand Logo */}
-          <div className="flex items-center gap-2.5">
-            <div className="w-8 h-8 rounded-lg bg-blue-700 flex items-center justify-center text-white shadow-sm">
+          <Link href="/" className="flex items-center gap-2.5 group">
+            <div className="w-8 h-8 rounded-lg bg-blue-700 flex items-center justify-center text-white shadow-sm transition group-hover:bg-blue-800">
               <ShieldCheck className="w-5 h-5" />
             </div>
             <span className="font-bold text-xl tracking-tight text-slate-900">
               CampusGuard
             </span>
-          </div>
+          </Link>
 
-          {/* Navigation Links */}
-          <nav className="hidden md:flex items-center gap-8">
-            <a
-              href="#home"
-              className="text-sm font-semibold text-slate-900 hover:text-blue-600 transition"
-            >
-              Home
-            </a>
-            <a
-              href="#features"
-              className="text-sm font-medium text-slate-600 hover:text-blue-600 transition"
-            >
-              Features
-            </a>
-            <a
-              href="#about"
-              className="text-sm font-medium text-slate-600 hover:text-blue-600 transition"
-            >
-              About
-            </a>
+          {/* Navigation Pill Container */}
+          <nav className="flex items-center">
+            <div className="bg-slate-100/90 p-1 rounded-lg border border-slate-200/70 flex items-center gap-1">
+              <Link
+                href="/"
+                className="px-4 py-1.5 rounded-md text-sm font-semibold bg-blue-700 text-white shadow-xs"
+              >
+                Home
+              </Link>
+              <Link
+                href="/features"
+                className="px-4 py-1.5 rounded-md text-sm font-medium text-slate-700 hover:text-slate-900 transition"
+              >
+                Features
+              </Link>
+              <a
+                href="#about"
+                className="px-4 py-1.5 rounded-md text-sm font-medium text-slate-700 hover:text-slate-900 transition"
+              >
+                About
+              </a>
+            </div>
           </nav>
 
           {/* Right Action Buttons */}
           <div className="flex items-center gap-3">
-            <button className="bg-blue-700 hover:bg-blue-800 text-white text-sm font-semibold px-4 py-2 rounded-md shadow-xs transition duration-150 cursor-pointer">
+            <button className="bg-blue-700 hover:bg-blue-800 text-white text-sm font-semibold px-5 py-2 rounded-md shadow-xs transition duration-150 cursor-pointer">
               Login
             </button>
             <button
               aria-label="User Profile"
-              className="w-9 h-9 rounded-full bg-slate-100 border border-slate-200 flex items-center justify-center text-slate-600 hover:bg-slate-200 transition cursor-pointer"
+              className="w-9 h-9 rounded-full bg-blue-700 hover:bg-blue-800 flex items-center justify-center text-white shadow-xs transition duration-150 cursor-pointer"
             >
               <User className="w-4 h-4" />
             </button>
@@ -559,6 +562,7 @@ export default function HomePage() {
             </div>
             <div className="flex flex-wrap items-center gap-x-5 gap-y-2 text-slate-600 font-medium">
               <a href="#about" className="hover:text-blue-700 transition">About</a>
+              <Link href="/features" className="hover:text-blue-700 transition">Features</Link>
               <a href="#about" className="hover:text-blue-700 transition">Contact</a>
               <a href="#home" className="hover:text-blue-700 transition">Login</a>
               <span className="text-emerald-600 font-semibold flex items-center gap-1">
