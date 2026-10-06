@@ -1,37 +1,112 @@
 "use client";
 
-import React from "react";
+import React, { useState, useEffect } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import {
   ShieldCheck,
   Bell,
-  Clock,
   LogOut,
-  Edit,
+  Edit2,
   FileDown,
   Shield,
   Lock,
-  Radio,
   Building,
   Mail,
   UserCheck,
-  TrendingUp,
-  CheckCircle2,
   PhoneCall,
-  Users,
-  KeyRound,
-  ExternalLink
+  Save,
+  CheckCircle2
 } from "lucide-react";
-import { performLogout } from "@/lib/auth";
+import { getStoredAuthUser, performLogout, updateStoredAuthUser, AuthUser } from "@/lib/auth";
+import { API_ENDPOINTS } from "@/lib/api";
 
 export default function SupervisorProfilePage() {
+  const [user, setUser] = useState<AuthUser | null>(null);
+  const [isEditing, setIsEditing] = useState(false);
+  const [name, setName] = useState("");
+  const [department, setDepartment] = useState("");
+  const [badgeNumber, setBadgeNumber] = useState("");
+  const [phoneNumber, setPhoneNumber] = useState("");
+  const [shiftsCount, setShiftsCount] = useState(0);
+  const [notice, setNotice] = useState<string | null>(null);
+
+  useEffect(() => {
+    const authUser = getStoredAuthUser();
+    if (authUser) {
+      setUser(authUser);
+      setName(authUser.name || "Supervisor Elena Rostova");
+      setDepartment(authUser.department || "Operations Dispatch Control");
+      setBadgeNumber(authUser.badgeNumber || "SS-104");
+      setPhoneNumber(authUser.phoneNumber || "+1 (555) 018-9104");
+    }
+
+    fetch(API_ENDPOINTS.shifts.list)
+      .then((res) => (res.ok ? res.json() : []))
+      .then((data) => {
+        if (Array.isArray(data)) setShiftsCount(data.length);
+      })
+      .catch(() => {});
+  }, []);
+
+  const handleSave = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!user) return;
+
+    try {
+      const res = await fetch(API_ENDPOINTS.auth.profile, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          email: user.email,
+          name,
+          department,
+          badgeNumber,
+          phoneNumber,
+        }),
+      });
+
+      if (res.ok) {
+        const updated = await res.json();
+        updateStoredAuthUser({
+          name: updated.name || name,
+          department: updated.department || department,
+          badgeNumber: updated.badgeNumber || badgeNumber,
+          phoneNumber: updated.phoneNumber || phoneNumber,
+        });
+        setUser((prev) =>
+          prev
+            ? {
+                ...prev,
+                name: updated.name || name,
+                department: updated.department || department,
+                badgeNumber: updated.badgeNumber || badgeNumber,
+                phoneNumber: updated.phoneNumber || phoneNumber,
+              }
+            : null
+        );
+        setIsEditing(false);
+        setNotice("Supervisor profile saved and synced to database.");
+        setTimeout(() => setNotice(null), 3000);
+      }
+    } catch {
+      updateStoredAuthUser({ name, department, badgeNumber, phoneNumber });
+      setIsEditing(false);
+      setNotice("Profile updated.");
+      setTimeout(() => setNotice(null), 3000);
+    }
+  };
+
+  const displayName = user?.name || "Supervisor Elena Rostova";
+  const displayBadge = user?.badgeNumber || "SS-104";
+  const displayEmail = user?.email || "supervisor@campusguard.edu";
+  const displayDept = user?.department || "Operations Dispatch Control";
+
   return (
     <div className="min-h-screen bg-[#f8fafc] text-slate-900 font-sans flex flex-col">
       {/* 1. TOP APP HEADER */}
       <header className="bg-white border-b border-slate-200 sticky top-0 z-30 shadow-2xs">
         <div className="max-w-[1520px] mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
-          {/* Logo & Portal Brand */}
           <div className="flex items-center gap-6">
             <Link href="/" className="flex items-center gap-2.5">
               <div className="w-8 h-8 rounded-lg bg-[#1a44c2] flex items-center justify-center text-white shadow-xs">
@@ -47,7 +122,6 @@ export default function SupervisorProfilePage() {
               </div>
             </Link>
 
-            {/* Top Navigation Links */}
             <nav className="hidden md:flex items-center gap-6 pl-4 text-xs font-semibold">
               <Link
                 href="/dashboard/supervisor"
@@ -88,28 +162,23 @@ export default function SupervisorProfilePage() {
             </nav>
           </div>
 
-          {/* Right Status & Profile */}
           <div className="flex items-center gap-3">
             <div className="hidden sm:flex items-center gap-2 px-3 py-1.5 rounded-full bg-[#f1f5f9] border border-slate-200/80 text-xs font-semibold text-slate-700">
               <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
-              <span>ACTIVE DISPATCH</span>
+              <span>ACTIVE WATCH COMMAND</span>
             </div>
 
             <Link href="/dashboard/supervisor/notifications" className="relative cursor-pointer">
               <div className="w-9 h-9 rounded-full bg-slate-100 hover:bg-slate-200 flex items-center justify-center text-slate-600 transition">
                 <Bell className="w-4 h-4" />
               </div>
-              <span className="absolute top-1 right-1 w-4 h-4 rounded-full bg-red-600 text-white text-[10px] font-bold flex items-center justify-center border-2 border-white">
-                3
-              </span>
             </Link>
 
-            {/* Supervisor Profile */}
             <div className="flex items-center gap-2.5 pl-2 border-l border-slate-200">
               <div className="w-9 h-9 rounded-full bg-[#1a44c2] text-white flex items-center justify-center font-bold text-xs overflow-hidden">
                 <Image
                   src="/supervisor-elena.jpg"
-                  alt="Supervisor Elena"
+                  alt={displayName}
                   width={36}
                   height={36}
                   className="w-full h-full object-cover"
@@ -117,10 +186,10 @@ export default function SupervisorProfilePage() {
               </div>
               <div className="hidden lg:flex flex-col text-left">
                 <span className="text-xs font-bold text-slate-900 leading-tight">
-                  Supervisor Elena Rostova
+                  {displayName}
                 </span>
                 <span className="text-[11px] text-slate-500 leading-tight">
-                  Badge #SS-104
+                  Badge #{displayBadge}
                 </span>
               </div>
               <button
@@ -136,36 +205,9 @@ export default function SupervisorProfilePage() {
         </div>
       </header>
 
-      {/* TOP SESSION EXPIRY RIBBON */}
-      <div className="bg-slate-100/90 border-b border-slate-200 px-4 sm:px-8 py-2.5">
-        <div className="max-w-[1520px] mx-auto flex flex-col md:flex-row md:items-center justify-between gap-2 text-xs">
-          <div className="flex items-center gap-2">
-            <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
-            <span className="font-extrabold text-slate-800 uppercase tracking-wider text-[11px]">
-              LIVE SESSION ENFORCED
-            </span>
-          </div>
-
-          <div className="flex items-center gap-3 text-xs self-start md:self-center">
-            <span>
-              SESSION EXPIRES: <strong className="font-mono font-bold text-slate-900">05:42:19</strong>
-            </span>
-            <span className="text-slate-300">|</span>
-            <button
-              type="button"
-              onClick={() => alert("Watch session token renewed for +8 hours.")}
-              className="font-bold text-[#1a44c2] hover:underline cursor-pointer"
-            >
-              Extend Watch Session
-            </button>
-          </div>
-        </div>
-      </div>
-
-      {/* 2. BODY LAYOUT: SIDEBAR + MAIN */}
+      {/* 2. BODY LAYOUT */}
       <div className="flex-1 flex max-w-[1600px] w-full mx-auto">
-        {/* LEFT SIDEBAR */}
-        <aside className="w-60 shrink-0 hidden md:flex flex-col justify-between bg-white border-r border-slate-200/90 min-h-[calc(100vh-115px)] p-4">
+        <aside className="w-60 shrink-0 hidden md:flex flex-col justify-between bg-white border-r border-slate-200/90 min-h-[calc(100vh-64px)] p-4">
           <div>
             <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400 px-3 py-2">
               SUPERVISOR CONSOLE
@@ -209,362 +251,186 @@ export default function SupervisorProfilePage() {
               </Link>
             </nav>
           </div>
-
-          <div className="p-3 bg-blue-50/70 border border-blue-100 rounded-xl space-y-1">
-            <div className="text-[10px] font-extrabold uppercase text-[#1a44c2]">
-              Watch Command
-            </div>
-            <div className="text-xs font-bold text-slate-900">
-              Zone Alpha • Shift B
-            </div>
-          </div>
         </aside>
 
         {/* MAIN PROFILE CONTENT */}
         <main className="flex-1 p-4 sm:p-6 lg:p-8 space-y-6 overflow-y-auto">
-          {/* Header Row */}
-          <div>
-            <div className="text-[10px] font-extrabold uppercase tracking-wider text-[#1a44c2]">
-              SUPERVISOR DOSSIER • COMMAND AUTHORIZATION &amp; AUDIT CLEARANCE
+          {notice && (
+            <div className="p-3 bg-emerald-50 border border-emerald-200 text-emerald-900 rounded-xl text-xs font-bold flex items-center gap-2">
+              <CheckCircle2 className="w-4 h-4 text-emerald-600" />
+              <span>{notice}</span>
+            </div>
+          )}
+
+          <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+            <div>
+              <h1 className="text-2xl sm:text-3xl font-extrabold text-slate-900 tracking-tight">
+                Shift Supervisor Dossier &amp; Watch Authority
+              </h1>
+              <p className="text-xs sm:text-sm text-slate-600 font-normal mt-1">
+                Validated supervisor credentials, operational sector authorizations, and dispatch telemetry.
+              </p>
             </div>
 
-            <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 mt-1">
-              <div>
-                <h1 className="text-2xl sm:text-3xl font-extrabold text-slate-900 tracking-tight">
-                  Supervisor Profile &amp; Command Dossier
-                </h1>
-                <p className="text-xs sm:text-sm text-slate-600 font-normal mt-1 max-w-3xl">
-                  Tactical supervisory credentials, institutional single sign-on authorizations, sector delegation management, and continuous security audit records.
-                </p>
-              </div>
-
-              <div className="flex items-center gap-2.5">
-                <button
-                  type="button"
-                  onClick={() => alert("Opening supervisor profile editor...")}
-                  className="px-3.5 py-2 bg-white border border-slate-200 hover:bg-slate-50 text-slate-700 font-bold text-xs rounded-xl flex items-center gap-1.5 shadow-2xs transition cursor-pointer"
-                >
-                  <Edit className="w-3.5 h-3.5" />
-                  <span>Edit Profile</span>
-                </button>
-
-                <button
-                  type="button"
-                  onClick={() => alert("Exporting official Command Dossier record...")}
-                  className="px-3.5 py-2 bg-white border border-slate-200 hover:bg-slate-50 text-slate-700 font-bold text-xs rounded-xl flex items-center gap-1.5 shadow-2xs transition cursor-pointer"
-                >
-                  <FileDown className="w-3.5 h-3.5" />
-                  <span>Export Record</span>
-                </button>
-              </div>
-            </div>
+            <button
+              type="button"
+              onClick={() => setIsEditing(!isEditing)}
+              className="px-3.5 py-2 bg-slate-100 hover:bg-slate-200 text-slate-800 font-bold text-xs rounded-xl flex items-center gap-2 transition cursor-pointer"
+            >
+              <Edit2 className="w-3.5 h-3.5" />
+              <span>{isEditing ? "Cancel" : "Edit Supervisor Profile"}</span>
+            </button>
           </div>
 
-          {/* TWO COLUMNS: BIO/METRICS + PERMISSIONS/AUDIT */}
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
-            {/* LEFT COLUMN: BIO & TELEMETRY */}
+            {/* LEFT COLUMN */}
             <div className="lg:col-span-5 space-y-6">
-              {/* Card 1: Elena Rostova Bio Card */}
-              <div className="bg-white border border-slate-200/90 rounded-2xl p-5 shadow-2xs space-y-4">
-                <div className="flex items-start gap-4">
-                  <div className="relative w-16 h-16 rounded-xl overflow-hidden bg-slate-200 border-2 border-white shadow-md shrink-0">
-                    <Image
-                      src="/supervisor-elena.jpg"
-                      alt="Supervisor Elena Rostova"
-                      width={64}
-                      height={64}
-                      className="w-full h-full object-cover"
-                    />
-                    <div className="absolute bottom-0 inset-x-0 bg-blue-900/90 text-white text-[9px] font-bold text-center py-0.5 font-mono">
-                      SS-104
-                    </div>
-                  </div>
-
-                  <div className="flex-1 space-y-1">
-                    <div className="flex items-center gap-2">
-                      <span className="bg-blue-100 text-[#1a44c2] text-[10px] font-extrabold uppercase px-2 py-0.5 rounded">
-                        SHIFT SUPERVISOR
-                      </span>
-                      <span className="text-[10px] font-bold text-slate-500 uppercase">
-                        ZONE ALPHA
-                      </span>
-                    </div>
-
-                    <h2 className="text-lg font-extrabold text-slate-900 leading-tight">
-                      Elena Rostova
-                    </h2>
-                    <div className="text-xs text-slate-600 font-medium">
-                      Tactical NOC Commander
-                    </div>
-                    <div className="text-[11px] font-bold text-emerald-600 flex items-center gap-1 pt-0.5">
-                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
-                      ON DUTY • SHIFT B (14:00 - 22:00)
-                    </div>
-                  </div>
-                </div>
-
-                {/* 2x2 Details Grid */}
-                <div className="grid grid-cols-2 gap-3 pt-2 border-t border-slate-100 text-xs">
-                  <div className="p-3 bg-slate-50 rounded-xl">
-                    <div className="text-[10px] font-bold uppercase text-slate-400">
-                      CLEARANCE LEVEL
-                    </div>
-                    <div className="font-extrabold text-[#1a44c2] mt-0.5">
-                      Level 4 • Exec Access
-                    </div>
-                  </div>
-
-                  <div className="p-3 bg-slate-50 rounded-xl">
-                    <div className="text-[10px] font-bold uppercase text-slate-400">
-                      RADIO CALL SIGN
-                    </div>
-                    <div className="font-bold text-slate-900 mt-0.5 flex items-center gap-1.5">
-                      <Radio className="w-3.5 h-3.5 text-blue-600" />
-                      <span>Echo-Leader</span>
-                    </div>
-                  </div>
-
-                  <div className="p-3 bg-slate-50 rounded-xl">
-                    <div className="text-[10px] font-bold uppercase text-slate-400">
-                      TERMINAL DESK
-                    </div>
-                    <div className="font-bold text-slate-900 mt-0.5">
-                      NOC Station 01
-                    </div>
-                  </div>
-
-                  <div className="p-3 bg-slate-50 rounded-xl">
-                    <div className="text-[10px] font-bold uppercase text-slate-400">
-                      COMMAND POST
-                    </div>
-                    <div className="font-bold text-slate-900 mt-0.5">
-                      Annex Building A
-                    </div>
-                  </div>
-                </div>
-
-                {/* Contact Rows */}
-                <div className="space-y-2 pt-1 border-t border-slate-100 text-xs">
-                  <div className="flex items-center justify-between">
-                    <span className="text-slate-500 flex items-center gap-1.5">
-                      <Mail className="w-3.5 h-3.5 text-slate-400" />
-                      Institutional Email:
-                    </span>
-                    <span className="font-mono font-bold text-slate-800">
-                      e.rostova@campusguard.edu
-                    </span>
-                  </div>
-
-                  <div className="flex items-center justify-between">
-                    <span className="text-slate-500 flex items-center gap-1.5">
-                      <Building className="w-3.5 h-3.5 text-slate-400" />
-                      Primary Unit:
-                    </span>
-                    <span className="font-semibold text-slate-800">
-                      Operations &amp; Threat Assessment
-                    </span>
-                  </div>
-                </div>
-              </div>
-
-              {/* Card 2: Operational Telemetry */}
               <div className="bg-white border border-slate-200/90 rounded-2xl p-5 shadow-2xs space-y-4">
                 <div className="flex items-center justify-between">
-                  <h3 className="text-sm font-bold text-slate-900">
-                    Operational Telemetry
-                  </h3>
-                  <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">
-                    Current Cycle (M-04)
+                  <div className="flex items-center gap-2">
+                    <ShieldCheck className="w-5 h-5 text-[#1a44c2]" />
+                    <span className="font-extrabold text-sm text-slate-900">CampusGuard Watch</span>
+                  </div>
+                  <span className="bg-blue-100 text-blue-800 text-[10px] font-bold px-2.5 py-0.5 rounded-full uppercase">
+                    ● Executive Supervisor
                   </span>
                 </div>
 
-                <div className="space-y-3 text-xs">
-                  <div className="flex items-center justify-between pb-2 border-b border-slate-100">
-                    <span className="text-slate-600">Shifts Supervised</span>
-                    <span className="font-bold text-slate-900">
-                      28 <span className="text-slate-400">/ 30 Target (93.3%)</span>
-                    </span>
-                  </div>
-
-                  <div className="flex items-center justify-between pb-2 border-b border-slate-100">
-                    <span className="text-slate-600">Escalation Response Latency</span>
-                    <span className="font-bold text-emerald-600">
-                      1m 24s <span className="text-[11px] font-normal text-slate-500">(Top 1%)</span>
-                    </span>
-                  </div>
-
-                  <div className="flex items-center justify-between pb-2 border-b border-slate-100">
-                    <span className="text-slate-600">Zero-Breach Compliance</span>
-                    <span className="font-bold text-slate-900">
-                      100% <span className="text-slate-400">(420 gate checks)</span>
-                    </span>
-                  </div>
-
-                  <div className="flex items-center justify-between pb-2 border-b border-slate-100">
-                    <span className="text-slate-600">Overtime Authorized</span>
-                    <span className="font-bold font-mono text-slate-900">
-                      14.5 hrs
-                    </span>
-                  </div>
-                </div>
-
-                {/* 7-Day Resolution Line Chart */}
-                <div className="pt-2 space-y-2">
-                  <div className="flex items-center justify-between text-xs">
-                    <span className="font-bold text-slate-800 text-[11px] uppercase tracking-wider">
-                      7-DAY INCIDENT RESOLUTION RATE
-                    </span>
-                    <span className="font-black text-[#1a44c2]">98.2% AVG</span>
-                  </div>
-
-                  {/* SVG Chart */}
-                  <div className="h-16 w-full pt-1">
-                    <svg className="w-full h-full" viewBox="0 0 300 60" preserveAspectRatio="none">
-                      <path
-                        d="M0,45 Q50,15 100,30 T200,20 T300,10"
-                        fill="none"
-                        stroke="#1a44c2"
-                        strokeWidth="3"
-                        strokeLinecap="round"
+                {isEditing ? (
+                  <form onSubmit={handleSave} className="space-y-3 pt-2 text-xs">
+                    <div>
+                      <label className="font-bold text-slate-600 block mb-1">Supervisor Name</label>
+                      <input
+                        type="text"
+                        required
+                        value={name}
+                        onChange={(e) => setName(e.target.value)}
+                        className="w-full p-2 border border-slate-300 rounded-lg font-bold"
                       />
-                    </svg>
-                  </div>
-                </div>
+                    </div>
+                    <div>
+                      <label className="font-bold text-slate-600 block mb-1">Department</label>
+                      <input
+                        type="text"
+                        required
+                        value={department}
+                        onChange={(e) => setDepartment(e.target.value)}
+                        className="w-full p-2 border border-slate-300 rounded-lg"
+                      />
+                    </div>
+                    <div>
+                      <label className="font-bold text-slate-600 block mb-1">Badge ID</label>
+                      <input
+                        type="text"
+                        required
+                        value={badgeNumber}
+                        onChange={(e) => setBadgeNumber(e.target.value)}
+                        className="w-full p-2 border border-slate-300 rounded-lg font-mono"
+                      />
+                    </div>
+                    <div>
+                      <label className="font-bold text-slate-600 block mb-1">Direct Phone</label>
+                      <input
+                        type="text"
+                        value={phoneNumber}
+                        onChange={(e) => setPhoneNumber(e.target.value)}
+                        className="w-full p-2 border border-slate-300 rounded-lg font-mono"
+                      />
+                    </div>
+                    <div className="flex gap-2 pt-2">
+                      <button
+                        type="submit"
+                        className="px-4 py-2 bg-[#1a44c2] hover:bg-[#1538a6] text-white text-xs font-bold rounded-lg flex items-center gap-1.5"
+                      >
+                        <Save className="w-3.5 h-3.5" />
+                        Save Profile
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setIsEditing(false)}
+                        className="px-3 py-2 bg-slate-100 text-slate-700 text-xs font-semibold rounded-lg"
+                      >
+                        Cancel
+                      </button>
+                    </div>
+                  </form>
+                ) : (
+                  <>
+                    <div className="flex items-center gap-4 pt-1">
+                      <div className="w-16 h-16 rounded-full overflow-hidden border-2 border-white shadow-md bg-slate-200 shrink-0">
+                        <Image
+                          src="/supervisor-elena.jpg"
+                          alt={displayName}
+                          width={64}
+                          height={64}
+                          className="w-full h-full object-cover"
+                        />
+                      </div>
+                      <div>
+                        <h2 className="text-lg font-extrabold text-slate-900 leading-tight">
+                          {displayName}
+                        </h2>
+                        <div className="text-xs font-bold text-[#1a44c2]">
+                          Shift Supervisor &amp; Watch Commander
+                        </div>
+                        <div className="text-[11px] text-slate-500 mt-0.5">
+                          Badge #{displayBadge}
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-3 pt-3 border-t border-slate-100 text-xs">
+                      <div className="p-3 bg-slate-50 rounded-xl">
+                        <div className="text-[10px] font-bold uppercase text-slate-400">COMMAND UNIT</div>
+                        <div className="font-bold text-slate-900 mt-0.5">{displayDept}</div>
+                      </div>
+                      <div className="p-3 bg-slate-50 rounded-xl">
+                        <div className="text-[10px] font-bold uppercase text-slate-400">AUTHORIZATION</div>
+                        <div className="font-bold text-slate-900 mt-0.5">Clearance Level 4</div>
+                      </div>
+                    </div>
+
+                    <div className="p-3 bg-slate-50 rounded-xl text-xs">
+                      <div className="text-[10px] font-bold uppercase text-slate-400">CONTACT ROUTING</div>
+                      <div className="font-bold text-slate-900 font-mono mt-0.5">{displayEmail}</div>
+                      <div className="text-slate-500 font-mono text-[11px] mt-0.5">{phoneNumber}</div>
+                    </div>
+                  </>
+                )}
               </div>
             </div>
 
-            {/* RIGHT COLUMN: PERMISSIONS & AUDIT LOG */}
+            {/* RIGHT COLUMN */}
             <div className="lg:col-span-7 space-y-6">
-              {/* Card 1: Sector Supervisory Permissions & Delegations */}
               <div className="bg-white border border-slate-200/90 rounded-2xl p-5 shadow-2xs space-y-4">
-                <div className="flex items-center justify-between">
-                  <h2 className="text-sm font-bold text-slate-900">
-                    Sector Supervisory Permissions &amp; Delegations
-                  </h2>
-                  <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">
-                    CLEARANCE RANK: TIER-1 OPS
-                  </span>
-                </div>
+                <h2 className="text-base font-bold text-slate-900">
+                  Supervisor Operational Summary
+                </h2>
 
-                <div className="space-y-3 text-xs">
-                  {/* Item 1 */}
-                  <div className="p-3.5 bg-slate-50 rounded-xl flex items-center justify-between gap-3">
-                    <div className="space-y-0.5">
-                      <div className="font-bold text-slate-900">
-                        Perimeter Gate Access Override
-                      </div>
-                      <div className="text-[11px] text-slate-500">
-                        Master Override Authorized across Perimeter Gates 01 through 14
-                      </div>
-                    </div>
-                    <span className="bg-blue-100 text-[#1a44c2] font-extrabold text-[10px] px-2.5 py-1 rounded uppercase shrink-0">
-                      MASTER AUTHORIZED
-                    </span>
+                <div className="grid grid-cols-2 gap-4 text-xs">
+                  <div className="p-4 bg-slate-50 rounded-xl space-y-1">
+                    <span className="text-[10px] font-bold uppercase text-slate-500">ASSIGNED SHIFTS MANAGED</span>
+                    <div className="text-2xl font-black text-slate-900">{shiftsCount}</div>
+                    <span className="text-slate-500 text-[11px]">Active in database</span>
                   </div>
 
-                  {/* Item 2 */}
-                  <div className="p-3.5 bg-slate-50 rounded-xl flex items-center justify-between gap-3">
-                    <div className="space-y-0.5">
-                      <div className="font-bold text-slate-900">
-                        Staff Reassignment &amp; Overtime Dispatch
-                      </div>
-                      <div className="text-[11px] text-slate-500">
-                        Full delegation authority across Shift B &amp; incoming Shift C roster
-                      </div>
-                    </div>
-                    <span className="bg-blue-100 text-[#1a44c2] font-extrabold text-[10px] px-2.5 py-1 rounded uppercase shrink-0">
-                      FULL AUTHORITY
-                    </span>
-                  </div>
-
-                  {/* Item 3 */}
-                  <div className="p-3.5 bg-slate-50 rounded-xl flex items-center justify-between gap-3">
-                    <div className="space-y-0.5">
-                      <div className="font-bold text-slate-900">
-                        Proctor Emergency Hotline Speed-Dial
-                      </div>
-                      <div className="text-[11px] text-slate-500">
-                        Tier-1 Direct line to Campus Executive Chancellor &amp; Municipal Swat
-                      </div>
-                    </div>
-                    <span className="bg-emerald-100 text-emerald-800 font-extrabold text-[10px] px-2.5 py-1 rounded uppercase shrink-0">
-                      DIRECT ACCESS
-                    </span>
+                  <div className="p-4 bg-slate-50 rounded-xl space-y-1">
+                    <span className="text-[10px] font-bold uppercase text-slate-500">SECTOR COVERAGE</span>
+                    <div className="text-2xl font-black text-[#1a44c2]">100%</div>
+                    <span className="text-slate-500 text-[11px]">All perimeter sectors</span>
                   </div>
                 </div>
-              </div>
 
-              {/* Card 2: Recent Supervisory Audit Log */}
-              <div className="bg-white border border-slate-200/90 rounded-2xl p-5 shadow-2xs space-y-4">
-                <div className="flex items-center justify-between">
-                  <h3 className="text-sm font-bold text-slate-900">
-                    Recent Supervisory Audit Log
-                  </h3>
-                  <span className="text-[10px] font-mono text-slate-400 font-bold">
-                    Immutable Hash Log (SHA-256)
-                  </span>
-                </div>
-
-                <div className="space-y-3 text-xs">
-                  {/* Row 1 */}
-                  <div className="p-3 bg-slate-50 rounded-xl flex items-center justify-between gap-3">
-                    <div className="space-y-0.5">
-                      <div className="flex items-center gap-2">
-                        <span className="font-mono text-slate-500 text-[11px] font-bold">
-                          14:18:22
-                        </span>
-                        <span className="font-bold text-slate-900">
-                          Authorized Barrier Lockdown at Gate 07
-                        </span>
-                      </div>
-                      <p className="text-[11px] text-slate-500">
-                        Initiated manual hydraulic pop-up bollards following perimeter vehicle alert.
-                      </p>
-                    </div>
-                    <span className="font-mono text-[10px] text-slate-400 font-bold bg-white px-2 py-1 rounded border border-slate-200 shrink-0">
-                      AUDIT-89412
-                    </span>
-                  </div>
-
-                  {/* Row 2 */}
-                  <div className="p-3 bg-slate-50 rounded-xl flex items-center justify-between gap-3">
-                    <div className="space-y-0.5">
-                      <div className="flex items-center gap-2">
-                        <span className="font-mono text-slate-500 text-[11px] font-bold">
-                          14:15:04
-                        </span>
-                        <span className="font-bold text-slate-900">
-                          Dispatched Reserve Officer L. Gomez
-                        </span>
-                      </div>
-                      <p className="text-[11px] text-slate-500">
-                        Reinforced North Quad patrol zone during student union symposium.
-                      </p>
-                    </div>
-                    <span className="font-mono text-[10px] text-slate-400 font-bold bg-white px-2 py-1 rounded border border-slate-200 shrink-0">
-                      AUDIT-89408
-                    </span>
-                  </div>
-
-                  {/* Row 3 */}
-                  <div className="p-3 bg-slate-50 rounded-xl flex items-center justify-between gap-3">
-                    <div className="space-y-0.5">
-                      <div className="flex items-center gap-2">
-                        <span className="font-mono text-slate-500 text-[11px] font-bold">
-                          13:58:49
-                        </span>
-                        <span className="font-bold text-slate-900">
-                          Signed Off Gate 04 Shift Transition
-                        </span>
-                      </div>
-                      <p className="text-[11px] text-slate-500">
-                        Validated physical equipment inventory, handheld scanner checkouts, and visitor logs.
-                      </p>
-                    </div>
-                    <span className="font-mono text-[10px] text-slate-400 font-bold bg-white px-2 py-1 rounded border border-slate-200 shrink-0">
-                      AUDIT-88397
-                    </span>
-                  </div>
+                <div className="pt-4 border-t flex items-center justify-between">
+                  <span className="text-xs text-slate-500">Session authenticated</span>
+                  <button
+                    type="button"
+                    onClick={() => performLogout()}
+                    className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white font-bold text-xs rounded-xl flex items-center gap-1.5 transition cursor-pointer"
+                  >
+                    <LogOut className="w-3.5 h-3.5" />
+                    <span>Log Out of Watch Command</span>
+                  </button>
                 </div>
               </div>
             </div>

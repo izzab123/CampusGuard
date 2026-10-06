@@ -24,7 +24,7 @@ interface AdminLayoutProps {
 
 const NAV_ITEMS: { name: AdminTab; path: string; icon: React.ElementType; badge?: string; badgeColor?: string }[] = [
   { name: "Dashboard", path: "/dashboard/admin", icon: LayoutGrid },
-  { name: "Users & Roles", path: "/dashboard/admin/users", icon: Users, badge: "5 Seed", badgeColor: "bg-slate-100 text-slate-700" },
+  { name: "Users & Roles", path: "/dashboard/admin/users", icon: Users, badge: "Directory", badgeColor: "bg-slate-100 text-slate-700" },
   { name: "Security Audit Logs", path: "/dashboard/admin/audit-logs", icon: Shield, badge: "Live", badgeColor: "bg-blue-100 text-blue-700" },
   { name: "Profile", path: "/dashboard/admin/profile", icon: User },
 ];

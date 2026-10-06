@@ -26,10 +26,13 @@ public class User {
 
     private String department;
 
+    private String status; // ACTIVE, SUSPENDED, PENDING
+
     private LocalDateTime createdAt;
 
     public User() {
         this.createdAt = LocalDateTime.now();
+        this.status = "ACTIVE";
     }
 
     public User(String email, String password, String role) {
@@ -101,6 +104,14 @@ public class User {
 
     public void setDepartment(String department) {
         this.department = department;
+    }
+
+    public String getStatus() {
+        return status != null ? status : "ACTIVE";
+    }
+
+    public void setStatus(String status) {
+        this.status = status;
     }
 
     public LocalDateTime getCreatedAt() {

@@ -9,4 +9,5 @@ import java.util.List;
 @Repository
 public interface ShiftLogRepository extends JpaRepository<ShiftLog, Long> {
     List<ShiftLog> findByStatus(String status);
+    List<ShiftLog> findAllByOrderByShiftStartDesc();
 }

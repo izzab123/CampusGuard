@@ -245,9 +245,76 @@ public class AuthController {
             map.put("fullName", u.getFullName());
             map.put("badgeNumber", u.getBadgeNumber());
             map.put("department", u.getDepartment());
+            map.put("status", u.getStatus());
             map.put("createdAt", u.getCreatedAt());
             list.add(map);
         }
         return ResponseEntity.ok(list);
+    }
+
+    /**
+     * Admin provisions a new user
+     */
+    @PostMapping("/users")
+    public ResponseEntity<?> createUser(@RequestBody User newUser) {
+        if (newUser.getEmail() == null || newUser.getEmail().isBlank()) {
+            return ResponseEntity.badRequest().body(Map.of("error", "Email is required"));
+        }
+        if (userRepository.findByEmailIgnoreCase(newUser.getEmail().trim()).isPresent()) {
+            return ResponseEntity.badRequest().body(Map.of("error", "User with this email already exists"));
+        }
+        if (newUser.getPassword() == null || newUser.getPassword().isBlank()) {
+            newUser.setPassword("12345678");
+        }
+        if (newUser.getStatus() == null || newUser.getStatus().isBlank()) {
+            newUser.setStatus("ACTIVE");
+        }
+        User saved = userRepository.save(newUser);
+        return ResponseEntity.status(HttpStatus.CREATED).body(Map.of(
+                "id", saved.getId(),
+                "email", saved.getEmail(),
+                "role", saved.getRole(),
+                "fullName", saved.getFullName() != null ? saved.getFullName() : "",
+                "badgeNumber", saved.getBadgeNumber() != null ? saved.getBadgeNumber() : "",
+                "department", saved.getDepartment() != null ? saved.getDepartment() : "",
+                "status", saved.getStatus()
+        ));
+    }
+
+    /**
+     * Admin activates / deactivates user status
+     */
+    @PatchMapping("/users/{id}/status")
+    public ResponseEntity<?> updateUserStatus(@PathVariable Long id, @RequestBody Map<String, String> body) {
+        String newStatus = body.getOrDefault("status", "ACTIVE");
+        return userRepository.findById(id).map(u -> {
+            u.setStatus(newStatus.toUpperCase());
+            userRepository.save(u);
+            return ResponseEntity.ok(Map.of("success", true, "id", u.getId(), "status", u.getStatus()));
+        }).orElse(ResponseEntity.notFound().build());
+    }
+
+    /**
+     * Update user profile details
+     */
+    @PutMapping("/profile")
+    public ResponseEntity<?> updateProfile(@RequestBody Map<String, String> body) {
+        String email = body.get("email");
+        if (email == null || email.isBlank()) {
+            return ResponseEntity.badRequest().body(Map.of("error", "Email is required"));
+        }
+        return userRepository.findByEmailIgnoreCase(email.trim()).map(u -> {
+            if (body.containsKey("fullName")) u.setFullName(body.get("fullName"));
+            if (body.containsKey("department")) u.setDepartment(body.get("department"));
+            if (body.containsKey("badgeNumber")) u.setBadgeNumber(body.get("badgeNumber"));
+            userRepository.save(u);
+            return ResponseEntity.ok(Map.of(
+                    "success", true,
+                    "email", u.getEmail(),
+                    "fullName", u.getFullName(),
+                    "department", u.getDepartment(),
+                    "badgeNumber", u.getBadgeNumber()
+            ));
+        }).orElse(ResponseEntity.notFound().build());
     }
 }

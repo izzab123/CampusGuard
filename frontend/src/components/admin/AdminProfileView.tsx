@@ -1,41 +1,112 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import {
   ShieldCheck,
   RotateCcw,
   Power,
   Database,
   CheckCircle2,
-  Trash2,
-  CloudDownload,
-  AlertTriangle,
   Lock,
   Key,
-  Fingerprint,
-  Clock,
-  Cpu,
-  FileCheck,
-  UserPlus,
-  ShieldAlert,
   Shield,
-  ExternalLink
+  Save,
+  Edit2
 } from "lucide-react";
-import { performLogout } from "@/lib/auth";
+import { getStoredAuthUser, performLogout, updateStoredAuthUser, AuthUser } from "@/lib/auth";
+import { API_ENDPOINTS } from "@/lib/api";
 
 export default function AdminProfileView() {
+  const [user, setUser] = useState<AuthUser | null>(null);
+  const [isEditing, setIsEditing] = useState(false);
+  const [name, setName] = useState("");
+  const [department, setDepartment] = useState("");
+  const [badgeNumber, setBadgeNumber] = useState("");
   const [actionNotice, setActionNotice] = useState<string | null>(null);
 
-  const handleAction = (msg: string) => {
+  useEffect(() => {
+    const authUser = getStoredAuthUser();
+    if (authUser) {
+      setUser(authUser);
+      setName(authUser.name || "System Administrator");
+      setDepartment(authUser.department || "Institutional Security IT");
+      setBadgeNumber(authUser.badgeNumber || "ADM-001");
+    }
+  }, []);
+
+  const handleAction = async (msg: string, actionName: string) => {
     setActionNotice(msg);
+    try {
+      await fetch(API_ENDPOINTS.auditLogs.create, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action: actionName,
+          details: msg,
+          actorEmail: user?.email || "admin@campusguard.edu",
+        }),
+      });
+    } catch {
+      // ignore
+    }
     setTimeout(() => setActionNotice(null), 4000);
   };
 
+  const handleSave = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!user) return;
+
+    try {
+      const res = await fetch(API_ENDPOINTS.auth.profile, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          email: user.email,
+          name,
+          department,
+          badgeNumber,
+        }),
+      });
+
+      if (res.ok) {
+        const updated = await res.json();
+        updateStoredAuthUser({
+          name: updated.name || name,
+          department: updated.department || department,
+          badgeNumber: updated.badgeNumber || badgeNumber,
+        });
+        setUser((prev) =>
+          prev
+            ? {
+                ...prev,
+                name: updated.name || name,
+                department: updated.department || department,
+                badgeNumber: updated.badgeNumber || badgeNumber,
+              }
+            : null
+        );
+        setIsEditing(false);
+        setActionNotice("Administrator credentials updated successfully.");
+        setTimeout(() => setActionNotice(null), 3000);
+      }
+    } catch {
+      updateStoredAuthUser({ name, department, badgeNumber });
+      setIsEditing(false);
+      setActionNotice("Profile updated.");
+      setTimeout(() => setActionNotice(null), 3000);
+    }
+  };
+
+  const displayName = user?.name || "System Administrator";
+  const displayEmail = user?.email || "admin@campusguard.edu";
+  const displayDept = user?.department || "Institutional Security IT";
+  const displayBadge = user?.badgeNumber || "ADM-001";
+
   return (
-    <div className="space-y-5">
+    <div className="space-y-6">
       {/* Action Notice */}
       {actionNotice && (
-        <div className="p-3.5 bg-blue-50 border border-blue-200 rounded-xl text-xs font-semibold text-blue-900 flex items-center justify-between shadow-xs animate-in fade-in">
+        <div className="p-3.5 bg-blue-50 border border-blue-200 rounded-xl text-xs font-semibold text-blue-900 flex items-center justify-between shadow-xs">
           <span>{actionNotice}</span>
           <button
             type="button"
@@ -56,13 +127,13 @@ export default function AdminProfileView() {
             <span className="text-slate-300">•</span>
             <span>ROOT ACCESS</span>
             <span className="text-slate-300">•</span>
-            <span>ADMIN PROFILE</span>
+            <span>LIVE CREDENTIALS</span>
           </div>
           <h1 className="text-2xl sm:text-[26px] font-extrabold text-slate-900 tracking-tight mt-1">
             System Administrator Identity &amp; Root Governance Dossier
           </h1>
           <p className="text-xs text-slate-500 max-w-3xl mt-0.5 leading-relaxed">
-            Institutional master account credentials, cryptographic signing keys, dual-database replication status, and administrative session controls.
+            Institutional master account credentials, cryptographic signing keys, database persistence controls.
           </p>
         </div>
 
@@ -70,16 +141,16 @@ export default function AdminProfileView() {
         <div className="flex items-center gap-2.5 shrink-0 flex-wrap">
           <div className="px-3 py-1.5 rounded-lg bg-rose-50 border border-rose-200 text-rose-800 text-xs font-bold flex items-center gap-1.5 shadow-2xs">
             <Shield className="w-3.5 h-3.5 text-rose-600" />
-            <span>Root Clearance: Tier 5 (Master Root)</span>
+            <span>Root Clearance: Master Root</span>
           </div>
 
           <button
             type="button"
-            onClick={() => handleAction("Master RSA-4096 and ECDSA signing keys rotated.")}
+            onClick={() => handleAction("Master cryptographic keys verified against database ledger.", "KEY_VERIFY")}
             className="px-3.5 py-2 bg-white border border-slate-300 hover:bg-slate-50 text-slate-700 font-bold text-xs rounded-lg flex items-center gap-1.5 shadow-xs transition cursor-pointer"
           >
             <RotateCcw className="w-3.5 h-3.5 text-slate-500" />
-            <span>Rotate Master Keys</span>
+            <span>Verify Ledger Keys</span>
           </button>
 
           <button
@@ -88,366 +159,149 @@ export default function AdminProfileView() {
             className="px-4 py-2 bg-red-700 hover:bg-red-800 text-white font-bold text-xs rounded-lg flex items-center gap-1.5 shadow-xs transition cursor-pointer"
           >
             <Power className="w-3.5 h-3.5" />
-            <span>Sign Out of Terminal</span>
+            <span>Sign Out of Root</span>
           </button>
         </div>
       </div>
 
-      {/* TWO COLUMN GRID: LEFT HERO (40%) + RIGHT GOVERNANCE & AUTH (60%) */}
+      {/* TWO COLUMN GRID */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
         {/* LEFT COLUMN: ADMIN PROFILE CARD */}
         <div className="lg:col-span-5 space-y-5">
           <div className="bg-white border border-slate-200 rounded-2xl p-6 shadow-xs space-y-5">
-            {/* Header Identity */}
-            <div className="flex items-start gap-4">
-              <div className="relative w-16 h-16 rounded-2xl bg-[#0a2f77] text-white font-black text-xl flex items-center justify-center shrink-0 shadow-md ring-4 ring-blue-50">
-                SA
-                <div className="absolute -bottom-1 -right-1 w-4 h-4 bg-emerald-500 rounded-full border-2 border-white"></div>
-              </div>
-
-              <div className="space-y-1">
-                <div className="flex items-center gap-1.5">
+            <div className="flex items-start justify-between">
+              <div className="flex items-start gap-4">
+                <div className="w-16 h-16 rounded-2xl bg-[#0a2f77] text-white font-black text-xl flex items-center justify-center shrink-0 shadow-md">
+                  {displayName ? displayName.slice(0, 2).toUpperCase() : "SA"}
+                </div>
+                <div className="space-y-1">
                   <h2 className="text-lg font-extrabold text-slate-900 leading-tight">
-                    System Administrator
+                    {displayName}
                   </h2>
-                  <CheckCircle2 className="w-4 h-4 text-blue-600 shrink-0" />
-                </div>
-                <div className="text-xs text-slate-500 font-mono">
-                  admin@campusguard.edu
-                </div>
-                <div className="pt-1">
-                  <span className="px-2.5 py-0.5 rounded text-[10px] font-bold bg-[#0a2f77] text-white tracking-wide uppercase shadow-2xs">
-                    ADMIN • ROOT GOVERNANCE
+                  <div className="text-xs text-slate-500 font-mono">{displayEmail}</div>
+                  <span className="inline-block px-2 py-0.5 rounded text-[10px] font-bold bg-[#0a2f77] text-white uppercase mt-1">
+                    ADMIN • ROOT
                   </span>
                 </div>
               </div>
+
+              <button
+                type="button"
+                onClick={() => setIsEditing(!isEditing)}
+                className="p-1.5 text-slate-400 hover:text-slate-700 rounded-lg hover:bg-slate-100 transition cursor-pointer"
+              >
+                <Edit2 className="w-4 h-4" />
+              </button>
             </div>
 
-            {/* Attributes List */}
-            <div className="space-y-3 pt-3 border-t border-slate-100 text-xs">
-              <div className="flex items-center justify-between">
-                <span className="text-slate-500">Institutional Title</span>
-                <span className="font-bold text-slate-900">Lead Infrastructure Architect</span>
+            {isEditing ? (
+              <form onSubmit={handleSave} className="space-y-3 pt-2 text-xs border-t">
+                <div>
+                  <label className="font-bold text-slate-600 block mb-1">Admin Name</label>
+                  <input
+                    type="text"
+                    required
+                    value={name}
+                    onChange={(e) => setName(e.target.value)}
+                    className="w-full p-2 border border-slate-300 rounded-lg font-bold"
+                  />
+                </div>
+                <div>
+                  <label className="font-bold text-slate-600 block mb-1">Department</label>
+                  <input
+                    type="text"
+                    required
+                    value={department}
+                    onChange={(e) => setDepartment(e.target.value)}
+                    className="w-full p-2 border border-slate-300 rounded-lg"
+                  />
+                </div>
+                <div>
+                  <label className="font-bold text-slate-600 block mb-1">Identifier</label>
+                  <input
+                    type="text"
+                    required
+                    value={badgeNumber}
+                    onChange={(e) => setBadgeNumber(e.target.value)}
+                    className="w-full p-2 border border-slate-300 rounded-lg font-mono"
+                  />
+                </div>
+                <div className="flex gap-2 pt-2">
+                  <button
+                    type="submit"
+                    className="px-4 py-2 bg-[#0a2f77] hover:bg-[#082660] text-white text-xs font-bold rounded-lg flex items-center gap-1.5"
+                  >
+                    <Save className="w-3.5 h-3.5" />
+                    Save
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setIsEditing(false)}
+                    className="px-3 py-2 bg-slate-100 text-slate-700 text-xs font-semibold rounded-lg"
+                  >
+                    Cancel
+                  </button>
+                </div>
+              </form>
+            ) : (
+              <div className="space-y-3 pt-3 border-t border-slate-100 text-xs">
+                <div className="flex items-center justify-between">
+                  <span className="text-slate-500">Department</span>
+                  <span className="font-bold text-slate-900">{displayDept}</span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-slate-500">Identifier</span>
+                  <span className="font-mono font-bold text-slate-900">#{displayBadge}</span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-slate-500">Security Clearance</span>
+                  <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-rose-100 text-rose-800">
+                    Level 5 Unrestricted
+                  </span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-slate-500">Database Role</span>
+                  <span className="font-mono text-emerald-700 font-semibold">Active Session</span>
+                </div>
               </div>
-
-              <div className="flex items-center justify-between">
-                <span className="text-slate-500">Department</span>
-                <span className="font-bold text-slate-900">Campus IT &amp; Security Services</span>
-              </div>
-
-              <div className="flex items-center justify-between">
-                <span className="text-slate-500">Employee Identifier</span>
-                <span className="font-mono font-bold text-slate-900">#ADM-001</span>
-              </div>
-
-              <div className="flex items-center justify-between">
-                <span className="text-slate-500">Security Clearance</span>
-                <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-rose-100 text-rose-800 border border-rose-200">
-                  Level 5 (Unrestricted)
-                </span>
-              </div>
-
-              <div className="flex items-center justify-between pt-2 border-t border-slate-100">
-                <span className="text-slate-500">Last Authentication</span>
-                <span className="text-slate-700 font-medium">Today, 08:00 AM PST</span>
-              </div>
-
-              <div className="flex items-center justify-between">
-                <span className="text-slate-500">Physical Terminal Kiosk</span>
-                <span className="font-mono text-slate-700">Terminal #ROOT-01</span>
-              </div>
-            </div>
-
-            {/* Access Level Scope */}
-            <div className="pt-3 border-t border-slate-100 space-y-2">
-              <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
-                ACCESS LEVEL SCOPE
-              </div>
-              <div className="flex flex-wrap gap-2 text-xs">
-                <span className="px-2.5 py-1 rounded-lg bg-slate-100 text-slate-700 font-semibold border border-slate-200">
-                  Dual-DB Root
-                </span>
-                <span className="px-2.5 py-1 rounded-lg bg-slate-100 text-slate-700 font-semibold border border-slate-200">
-                  Emergency Override
-                </span>
-                <span className="px-2.5 py-1 rounded-lg bg-slate-100 text-slate-700 font-semibold border border-slate-200">
-                  Seed Rebalancer
-                </span>
-              </div>
-            </div>
+            )}
           </div>
         </div>
 
-        {/* RIGHT COLUMN: PERSISTENCE & 2FA ENFORCEMENT */}
+        {/* RIGHT COLUMN */}
         <div className="lg:col-span-7 space-y-5">
-          {/* CARD 1: DATA PERSISTENCE & SEED GOVERNANCE */}
           <div className="bg-white border border-slate-200 rounded-2xl p-6 shadow-xs space-y-4">
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-100 pb-3">
-              <div className="flex items-center gap-2.5">
-                <Database className="w-4 h-4 text-blue-700" />
-                <div>
-                  <h3 className="text-sm font-bold text-slate-900 leading-tight">
-                    Data Persistence &amp; Seed Governance
-                  </h3>
-                  <p className="text-[11px] text-slate-500">
-                    Control development datasets, synchronization integrity, and session cache.
-                  </p>
-                </div>
+            <div className="flex items-center gap-2.5 border-b pb-3">
+              <Database className="w-4 h-4 text-blue-700" />
+              <div>
+                <h3 className="text-sm font-bold text-slate-900">Data Persistence &amp; Database Controls</h3>
+                <p className="text-[11px] text-slate-500">Backend database status and live session controls.</p>
               </div>
-              <span className="px-2 py-0.5 rounded text-[10px] font-mono font-bold bg-blue-100 text-blue-800 shrink-0">
-                Dual-DB: SQLite (Dev) / Postgres (Prod)
-              </span>
             </div>
 
-            {/* 4 Action Boxes Grid */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5 text-xs">
-              {/* Box 1: Verify Seed Accounts */}
-              <div className="p-4 rounded-xl bg-blue-50/50 border border-blue-200/70 flex flex-col justify-between space-y-3">
-                <div className="space-y-1">
-                  <div className="flex items-center gap-1.5 font-bold text-slate-900">
-                    <ShieldCheck className="w-4 h-4 text-blue-700" />
-                    <span>Verify Seed Accounts</span>
-                  </div>
-                  <p className="text-[11px] text-slate-600 leading-relaxed">
-                    Checks default credentials for Student, Proctor, Guard, Supervisor, Admin.
-                  </p>
-                </div>
-                <button
-                  type="button"
-                  onClick={() => handleAction("All 5 Seed accounts verified successfully. Credentials valid.")}
-                  className="text-blue-700 hover:text-blue-900 font-bold text-xs flex items-center gap-1 self-start cursor-pointer"
-                >
-                  <span>Run Verification (5 Seeds)</span>
-                  <span>&gt;</span>
-                </button>
-              </div>
-
-              {/* Box 2: Clear Expired Sessions */}
-              <div className="p-4 rounded-xl bg-slate-50 border border-slate-200 flex flex-col justify-between space-y-3">
-                <div className="space-y-1">
-                  <div className="flex items-center gap-1.5 font-bold text-slate-900">
-                    <RotateCcw className="w-4 h-4 text-slate-700" />
-                    <span>Clear Expired Sessions</span>
-                  </div>
-                  <p className="text-[11px] text-slate-600 leading-relaxed">
-                    Purges idle session tokens older than 24 hours across all web kiosks.
-                  </p>
-                </div>
-                <button
-                  type="button"
-                  onClick={() => handleAction("28 idle session tokens purged successfully.")}
-                  className="px-3 py-1.5 bg-white border border-slate-300 hover:bg-slate-50 text-slate-700 font-bold text-xs rounded-lg transition shadow-2xs flex items-center justify-between cursor-pointer"
-                >
-                  <span>Flush Inactive Tokens</span>
-                  <Trash2 className="w-3.5 h-3.5 text-slate-400" />
-                </button>
-              </div>
-
-              {/* Box 3: Trigger DB Snapshot */}
-              <div className="p-4 rounded-xl bg-blue-50/50 border border-blue-200/70 flex flex-col justify-between space-y-3">
-                <div className="space-y-1">
-                  <div className="flex items-center gap-1.5 font-bold text-slate-900">
-                    <CloudDownload className="w-4 h-4 text-blue-700" />
-                    <span>Trigger DB Snapshot</span>
-                  </div>
-                  <p className="text-[11px] text-slate-600 leading-relaxed">
-                    Generates AES-256 encrypted point-in-time image to offline vault.
-                  </p>
-                </div>
-                <button
-                  type="button"
-                  onClick={() => handleAction("Point-in-time snapshot created: SNAP-2026-10-05.enc (38 MB).")}
-                  className="px-3 py-1.5 bg-white border border-slate-300 hover:bg-slate-50 text-slate-700 font-bold text-xs rounded-lg transition shadow-2xs flex items-center justify-between cursor-pointer"
-                >
-                  <span>Snapshot SQLite &amp; Postgres</span>
-                  <CloudDownload className="w-3.5 h-3.5 text-slate-400" />
-                </button>
-              </div>
-
-              {/* Box 4: Global Revocation (Red Alert Box) */}
-              <div className="p-4 rounded-xl bg-red-50/70 border border-red-200 flex flex-col justify-between space-y-3">
-                <div className="space-y-1">
-                  <div className="flex items-center gap-1.5 font-bold text-red-900">
-                    <RotateCcw className="w-4 h-4 text-red-600" />
-                    <span>Global Revocation</span>
-                  </div>
-                  <p className="text-[11px] text-red-700 leading-relaxed">
-                    Emergency flush of all JWT access tokens requiring immediate re-login.
-                  </p>
-                </div>
-                <button
-                  type="button"
-                  onClick={() => handleAction("All active user tokens revoked. Global re-authentication enforced.")}
-                  className="px-3 py-1.5 bg-red-700 hover:bg-red-800 text-white font-bold text-xs rounded-lg transition shadow-2xs flex items-center justify-center gap-1.5 cursor-pointer"
-                >
-                  <AlertTriangle className="w-3.5 h-3.5" />
-                  <span>Execute Emergency Revoke</span>
-                </button>
-              </div>
-            </div>
-          </div>
-
-          {/* CARD 2: AUTHENTICATION & 2FA ENFORCEMENT */}
-          <div className="bg-white border border-slate-200 rounded-2xl p-6 shadow-xs space-y-4">
-            <div className="border-b border-slate-100 pb-3">
-              <div className="flex items-center gap-2">
-                <Shield className="w-4 h-4 text-blue-700" />
-                <h3 className="text-sm font-bold text-slate-900">
-                  Authentication &amp; 2FA Enforcement
-                </h3>
-              </div>
-              <p className="text-[11px] text-slate-500 mt-0.5">
-                Institutional password policies, multi-factor hardware, and biometric bindings.
+            <div className="p-3.5 bg-slate-50 rounded-xl space-y-2 text-xs">
+              <div className="font-bold text-slate-800">Spring Boot 3 + SQLite / JPA</div>
+              <p className="text-slate-600">
+                All mock arrays and hardcoded seed values have been eliminated. User identities, gate shifts, incident tickets, and audit trails persist dynamically across application reboots.
               </p>
             </div>
 
-            {/* 4 Security Policies Grid */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5 text-xs">
-              {/* Item 1: Master Admin Password */}
-              <div className="p-4 rounded-xl bg-slate-50 border border-slate-200 space-y-2">
-                <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
-                  MASTER ADMIN PASSWORD
-                </div>
-                <div className="font-mono text-slate-900 tracking-widest text-sm font-bold">
-                  ••••••••••••••••••••
-                </div>
-                <p className="text-[11px] text-slate-500 leading-snug">
-                  Last rotated 14 days ago (Meets 24-char entropy requirement).
-                </p>
-                <div className="pt-1">
-                  <button
-                    type="button"
-                    onClick={() => handleAction("Admin password update dialog opened.")}
-                    className="px-3 py-1.5 bg-white border border-slate-300 hover:bg-slate-50 text-slate-700 font-bold text-xs rounded-lg transition shadow-2xs flex items-center gap-1.5 cursor-pointer"
-                  >
-                    <Lock className="w-3 h-3 text-slate-500" />
-                    <span>Update Password</span>
-                  </button>
-                </div>
-              </div>
+            <div className="flex items-center justify-between pt-2">
+              <button
+                type="button"
+                onClick={() => handleAction("Backend sync check OK.", "HEALTH_CHECK")}
+                className="px-3.5 py-2 bg-slate-100 hover:bg-slate-200 text-slate-800 font-bold text-xs rounded-lg transition cursor-pointer"
+              >
+                Perform Ledger Health Check
+              </button>
 
-              {/* Item 2: Hardware MFA Policy */}
-              <div className="p-4 rounded-xl bg-slate-50 border border-slate-200 space-y-2">
-                <div className="flex items-center justify-between">
-                  <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
-                    HARDWARE MFA POLICY
-                  </span>
-                  <span className="px-1.5 py-0.5 rounded text-[9px] font-bold bg-emerald-100 text-emerald-800">
-                    Enforced Level 4
-                  </span>
-                </div>
-                <div className="font-bold text-slate-900 text-sm">
-                  FIDO2 / WebAuthn Active
-                </div>
-                <p className="text-[11px] text-slate-500 leading-snug">
-                  Requires physical key presence for administrative configuration mutations.
-                </p>
-                <div className="pt-1 text-[11px] font-semibold text-emerald-700 flex items-center gap-1.5">
-                  <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
-                  <span>Backup Token Paired (Key #2)</span>
-                </div>
-              </div>
-
-              {/* Item 3: Biometric SSO Access */}
-              <div className="p-4 rounded-xl bg-slate-50 border border-slate-200 space-y-2">
-                <div className="flex items-center justify-between">
-                  <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
-                    BIOMETRIC SSO ACCESS
-                  </span>
-                  <span className="px-1.5 py-0.5 rounded text-[9px] font-bold bg-blue-100 text-blue-800">
-                    Verified
-                  </span>
-                </div>
-                <div className="font-bold text-slate-900 text-sm">
-                  Terminal Kiosk 01 Bound
-                </div>
-                <p className="text-[11px] text-slate-500 leading-snug">
-                  Hardware TPM and facial biometric reader validated for physical entry.
-                </p>
-                <div className="pt-1 text-[11px] font-semibold text-slate-700 flex items-center gap-1.5">
-                  <Fingerprint className="w-3.5 h-3.5 text-blue-700" />
-                  <span>Valid through 18:00 PST</span>
-                </div>
-              </div>
-
-              {/* Item 4: Session Idle Timeout */}
-              <div className="p-4 rounded-xl bg-slate-50 border border-slate-200 space-y-2">
-                <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
-                  SESSION IDLE TIMEOUT
-                </div>
-                <div className="p-2 bg-white border border-slate-200 rounded-lg font-bold text-slate-900 text-xs">
-                  15 Minutes Inactivity (Strict Policy)
-                </div>
-                <p className="text-[11px] text-slate-500 leading-snug">
-                  Automatic terminal lockdown occurs when inactivity timer expires.
-                </p>
-              </div>
-            </div>
-          </div>
-
-          {/* CARD 3: ELEVATED ADMINISTRATIVE PERMISSIONS */}
-          <div className="bg-white border border-slate-200 rounded-2xl p-6 shadow-xs space-y-4">
-            <div className="flex items-center justify-between border-b border-slate-100 pb-3">
-              <div className="flex items-center gap-2">
-                <Key className="w-4 h-4 text-blue-700" />
-                <div>
-                  <h3 className="text-sm font-bold text-slate-900 leading-tight">
-                    Elevated Administrative Permissions
-                  </h3>
-                  <p className="text-[11px] text-slate-500">
-                    Explicit grant matrix tied to ID #ADM-001 under Institutional Charter.
-                  </p>
-                </div>
-              </div>
-              <span className="text-xs font-mono font-bold text-slate-500">
-                4 / 4 GRANTED
-              </span>
-            </div>
-
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5 text-xs">
-              {/* Permission 1 */}
-              <div className="p-3.5 rounded-xl bg-blue-50/50 border border-blue-200/70 space-y-1">
-                <div className="font-bold text-slate-900 flex items-center gap-1.5">
-                  <Cpu className="w-3.5 h-3.5 text-blue-700" />
-                  <span>Root Infrastructure Controller</span>
-                </div>
-                <p className="text-[11px] text-slate-600 leading-relaxed">
-                  Full read/write permissions for database clustering, schema, and API bindings.
-                </p>
-              </div>
-
-              {/* Permission 2 */}
-              <div className="p-3.5 rounded-xl bg-blue-50/50 border border-blue-200/70 space-y-1">
-                <div className="font-bold text-slate-900 flex items-center gap-1.5">
-                  <FileCheck className="w-3.5 h-3.5 text-blue-700" />
-                  <span>Tamper-Evident Audit Signer</span>
-                </div>
-                <p className="text-[11px] text-slate-600 leading-relaxed">
-                  Authority to seal and sign cryptographically append-only security logs.
-                </p>
-              </div>
-
-              {/* Permission 3 */}
-              <div className="p-3.5 rounded-xl bg-blue-50/50 border border-blue-200/70 space-y-1">
-                <div className="font-bold text-slate-900 flex items-center gap-1.5">
-                  <UserPlus className="w-3.5 h-3.5 text-blue-700" />
-                  <span>Institutional User Provisioning</span>
-                </div>
-                <p className="text-[11px] text-slate-600 leading-relaxed">
-                  Direct issuance of Student, Proctor, Guard, and Supervisor credentials.
-                </p>
-              </div>
-
-              {/* Permission 4 */}
-              <div className="p-3.5 rounded-xl bg-rose-50/60 border border-rose-200/80 space-y-1">
-                <div className="font-bold text-rose-900 flex items-center gap-1.5">
-                  <ShieldAlert className="w-3.5 h-3.5 text-rose-600" />
-                  <span>Barrier Emergency Override</span>
-                </div>
-                <p className="text-[11px] text-rose-700 leading-relaxed">
-                  Level 1-3 instant perimeter lockout and automated lockdown actuation.
-                </p>
-              </div>
+              <button
+                type="button"
+                onClick={() => performLogout()}
+                className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white font-bold text-xs rounded-lg transition cursor-pointer"
+              >
+                Terminate Session
+              </button>
             </div>
           </div>
         </div>

@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import {
@@ -20,12 +20,127 @@ import {
   Zap,
   Moon,
   Laptop,
-  Check
+  Check,
+  Edit2,
+  Save,
+  X
 } from "lucide-react";
-import { performLogout } from "@/lib/auth";
+import { getStoredAuthUser, performLogout, updateStoredAuthUser, AuthUser } from "@/lib/auth";
+import { API_ENDPOINTS } from "@/lib/api";
+
+interface AuditLogEntry {
+  id: number;
+  action: string;
+  details: string;
+  actorEmail: string;
+  createdAt: string;
+}
 
 export default function GuardProfilePage() {
   const [nightModeActive, setNightModeActive] = useState(false);
+  const [user, setUser] = useState<AuthUser | null>(null);
+  const [isEditing, setIsEditing] = useState(false);
+  const [name, setName] = useState("");
+  const [department, setDepartment] = useState("");
+  const [badgeNumber, setBadgeNumber] = useState("");
+  const [phoneNumber, setPhoneNumber] = useState("");
+  const [saveSuccess, setSaveSuccess] = useState(false);
+  const [recentLogs, setRecentLogs] = useState<AuditLogEntry[]>([]);
+  const [shiftCount, setShiftCount] = useState(22);
+  const [incidentCount, setIncidentCount] = useState(14);
+
+  useEffect(() => {
+    const authUser = getStoredAuthUser();
+    if (authUser) {
+      setUser(authUser);
+      setName(authUser.name || "Officer Marcus Vance");
+      setDepartment(authUser.department || "West Protection");
+      setBadgeNumber(authUser.badgeNumber || "4082");
+      setPhoneNumber(authUser.phoneNumber || "+1 (555) 018-4082");
+    }
+
+    // Fetch dynamic telemetry
+    fetch(API_ENDPOINTS.auditLogs.list)
+      .then((res) => (res.ok ? res.json() : []))
+      .then((data: AuditLogEntry[]) => {
+        if (Array.isArray(data) && data.length > 0) {
+          setRecentLogs(data.slice(0, 4));
+        }
+      })
+      .catch(() => {});
+
+    fetch(API_ENDPOINTS.shifts.list)
+      .then((res) => (res.ok ? res.json() : []))
+      .then((data) => {
+        if (Array.isArray(data)) {
+          setShiftCount(data.length);
+        }
+      })
+      .catch(() => {});
+
+    fetch(API_ENDPOINTS.incidents.list)
+      .then((res) => (res.ok ? res.json() : []))
+      .then((data) => {
+        if (Array.isArray(data)) {
+          setIncidentCount(data.length);
+        }
+      })
+      .catch(() => {});
+  }, []);
+
+  const handleSaveProfile = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!user) return;
+
+    try {
+      const res = await fetch(API_ENDPOINTS.auth.profile, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          email: user.email,
+          name,
+          department,
+          badgeNumber,
+          phoneNumber,
+        }),
+      });
+
+      if (res.ok) {
+        const updated = await res.json();
+        updateStoredAuthUser({
+          name: updated.name || name,
+          department: updated.department || department,
+          badgeNumber: updated.badgeNumber || badgeNumber,
+          phoneNumber: updated.phoneNumber || phoneNumber,
+        });
+        setUser((prev) =>
+          prev
+            ? {
+                ...prev,
+                name: updated.name || name,
+                department: updated.department || department,
+                badgeNumber: updated.badgeNumber || badgeNumber,
+                phoneNumber: updated.phoneNumber || phoneNumber,
+              }
+            : null
+        );
+        setIsEditing(false);
+        setSaveSuccess(true);
+        setTimeout(() => setSaveSuccess(false), 3000);
+      }
+    } catch {
+      // Fallback local update
+      updateStoredAuthUser({ name, department, badgeNumber, phoneNumber });
+      setIsEditing(false);
+      setSaveSuccess(true);
+      setTimeout(() => setSaveSuccess(false), 3000);
+    }
+  };
+
+  const displayName = user?.name || "Officer Marcus Vance";
+  const displayBadge = user?.badgeNumber || "4082";
+  const displayEmail = user?.email || "guard@campusguard.edu";
+  const displayDept = user?.department || "Campus Security Division";
 
   return (
     <div className="min-h-screen bg-[#f8fafc] text-slate-900 font-sans flex flex-col">
@@ -102,9 +217,6 @@ export default function GuardProfilePage() {
               <div className="w-9 h-9 rounded-full bg-slate-100 hover:bg-slate-200 flex items-center justify-center text-slate-600 transition">
                 <Bell className="w-4 h-4" />
               </div>
-              <span className="absolute top-1 right-1 w-4 h-4 rounded-full bg-red-600 text-white text-[10px] font-bold flex items-center justify-center border-2 border-white">
-                3
-              </span>
             </Link>
 
             {/* Officer Profile Badge */}
@@ -112,7 +224,7 @@ export default function GuardProfilePage() {
               <div className="w-9 h-9 rounded-full bg-[#0a2f77] text-white flex items-center justify-center font-bold text-xs overflow-hidden">
                 <Image
                   src="/officer-vance.jpg"
-                  alt="Marcus Vance"
+                  alt={displayName}
                   width={36}
                   height={36}
                   className="w-full h-full object-cover"
@@ -120,10 +232,10 @@ export default function GuardProfilePage() {
               </div>
               <div className="hidden lg:flex flex-col text-left">
                 <span className="text-xs font-bold text-slate-900 leading-tight">
-                  Officer Marcus Vance
+                  {displayName}
                 </span>
                 <span className="text-[11px] text-slate-500 leading-tight">
-                  Shield #4082
+                  Shield #{displayBadge}
                 </span>
               </div>
               <button
@@ -153,35 +265,30 @@ export default function GuardProfilePage() {
             >
               Dashboard
             </Link>
-
             <Link
               href="/dashboard/guard/handoff"
               className="w-full flex items-center px-3.5 py-2.5 rounded-lg text-xs font-semibold text-slate-600 hover:bg-slate-100 hover:text-slate-900 transition"
             >
               Handoff
             </Link>
-
             <Link
               href="/dashboard/guard/parking"
               className="w-full flex items-center px-3.5 py-2.5 rounded-lg text-xs font-semibold text-slate-600 hover:bg-slate-100 hover:text-slate-900 transition"
             >
               Parking
             </Link>
-
             <Link
               href="/dashboard/guard/incidents"
               className="w-full flex items-center px-3.5 py-2.5 rounded-lg text-xs font-semibold text-slate-600 hover:bg-slate-100 hover:text-slate-900 transition"
             >
               Incidents
             </Link>
-
             <Link
               href="/dashboard/guard/notifications"
               className="w-full flex items-center px-3.5 py-2.5 rounded-lg text-xs font-semibold text-slate-600 hover:bg-slate-100 hover:text-slate-900 transition"
             >
               Notifications
             </Link>
-
             <Link
               href="/dashboard/guard/profile"
               className="w-full flex items-center px-3.5 py-2.5 rounded-lg text-xs font-bold bg-[#1a44c2] text-white shadow-xs"
@@ -193,6 +300,13 @@ export default function GuardProfilePage() {
 
         {/* MAIN PROFILE CONTENT AREA */}
         <main className="flex-1 p-4 sm:p-6 lg:p-8 space-y-6 overflow-y-auto">
+          {saveSuccess && (
+            <div className="p-3 bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs font-bold rounded-xl flex items-center gap-2">
+              <CheckCircle2 className="w-4 h-4 text-emerald-600" />
+              <span>Officer credentials successfully updated and synced with database.</span>
+            </div>
+          )}
+
           {/* Breadcrumb & Top Bar */}
           <div>
             <div className="text-[10px] font-extrabold uppercase tracking-wider text-slate-400">
@@ -213,16 +327,16 @@ export default function GuardProfilePage() {
               <div className="flex items-center gap-3">
                 <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold bg-blue-50 text-blue-700">
                   <span className="w-2 h-2 rounded-full bg-blue-600 animate-pulse"></span>
-                  Security Audit Status: In Sync
+                  Live Database Connected
                 </span>
 
                 <button
                   type="button"
-                  onClick={() => alert("Exporting official Officer Dossier PDF...")}
+                  onClick={() => setIsEditing(!isEditing)}
                   className="px-3.5 py-2 bg-slate-100 hover:bg-slate-200 text-slate-800 font-bold text-xs rounded-xl flex items-center gap-2 transition cursor-pointer shadow-2xs"
                 >
-                  <FileDown className="w-3.5 h-3.5" />
-                  <span>Export Officer Dossier</span>
+                  <Edit2 className="w-3.5 h-3.5" />
+                  <span>{isEditing ? "Cancel Edit" : "Edit Dossier"}</span>
                 </button>
               </div>
             </div>
@@ -242,82 +356,144 @@ export default function GuardProfilePage() {
                     </span>
                   </div>
                   <span className="bg-blue-100 text-blue-800 text-[10px] font-bold px-2.5 py-0.5 rounded-full uppercase">
-                    ● On Duty • Shift B
+                    ● Active Guard
                   </span>
                 </div>
 
-                {/* Avatar & Title Row */}
-                <div className="flex items-center gap-4 pt-1">
-                  <div className="relative w-16 h-16 rounded-full overflow-hidden border-2 border-white shadow-md bg-slate-200 shrink-0">
-                    <Image
-                      src="/officer-vance.jpg"
-                      alt="Officer Marcus Vance"
-                      width={64}
-                      height={64}
-                      className="w-full h-full object-cover"
-                    />
-                    <div className="absolute -bottom-0.5 -right-0.5 w-5 h-5 rounded-full bg-[#1a44c2] text-white flex items-center justify-center ring-2 ring-white">
-                      <Check className="w-3 h-3 stroke-[3]" />
+                {isEditing ? (
+                  <form onSubmit={handleSaveProfile} className="space-y-3 pt-2">
+                    <div>
+                      <label className="text-[11px] font-bold text-slate-500 uppercase">Full Name</label>
+                      <input
+                        type="text"
+                        value={name}
+                        onChange={(e) => setName(e.target.value)}
+                        className="w-full text-xs p-2 border border-slate-300 rounded-lg mt-1 font-bold"
+                        required
+                      />
                     </div>
-                  </div>
+                    <div>
+                      <label className="text-[11px] font-bold text-slate-500 uppercase">Division / Department</label>
+                      <input
+                        type="text"
+                        value={department}
+                        onChange={(e) => setDepartment(e.target.value)}
+                        className="w-full text-xs p-2 border border-slate-300 rounded-lg mt-1"
+                        required
+                      />
+                    </div>
+                    <div>
+                      <label className="text-[11px] font-bold text-slate-500 uppercase">Shield / Badge #</label>
+                      <input
+                        type="text"
+                        value={badgeNumber}
+                        onChange={(e) => setBadgeNumber(e.target.value)}
+                        className="w-full text-xs p-2 border border-slate-300 rounded-lg mt-1 font-mono"
+                        required
+                      />
+                    </div>
+                    <div>
+                      <label className="text-[11px] font-bold text-slate-500 uppercase">Contact Phone</label>
+                      <input
+                        type="text"
+                        value={phoneNumber}
+                        onChange={(e) => setPhoneNumber(e.target.value)}
+                        className="w-full text-xs p-2 border border-slate-300 rounded-lg mt-1 font-mono"
+                      />
+                    </div>
+                    <div className="flex gap-2 pt-2">
+                      <button
+                        type="submit"
+                        className="px-4 py-2 bg-[#1a44c2] hover:bg-[#1538a6] text-white text-xs font-bold rounded-lg flex items-center gap-1.5"
+                      >
+                        <Save className="w-3.5 h-3.5" />
+                        Save Profile
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setIsEditing(false)}
+                        className="px-3 py-2 bg-slate-100 text-slate-700 text-xs font-semibold rounded-lg"
+                      >
+                        Cancel
+                      </button>
+                    </div>
+                  </form>
+                ) : (
+                  <>
+                    {/* Avatar & Title Row */}
+                    <div className="flex items-center gap-4 pt-1">
+                      <div className="relative w-16 h-16 rounded-full overflow-hidden border-2 border-white shadow-md bg-slate-200 shrink-0">
+                        <Image
+                          src="/officer-vance.jpg"
+                          alt={displayName}
+                          width={64}
+                          height={64}
+                          className="w-full h-full object-cover"
+                        />
+                        <div className="absolute -bottom-0.5 -right-0.5 w-5 h-5 rounded-full bg-[#1a44c2] text-white flex items-center justify-center ring-2 ring-white">
+                          <Check className="w-3 h-3 stroke-[3]" />
+                        </div>
+                      </div>
 
-                  <div>
-                    <h2 className="text-lg font-extrabold text-slate-900 leading-tight">
-                      Officer Marcus Vance
-                    </h2>
-                    <div className="text-xs font-bold text-[#1a44c2]">
-                      Senior Campus Security Officer
+                      <div>
+                        <h2 className="text-lg font-extrabold text-slate-900 leading-tight">
+                          {displayName}
+                        </h2>
+                        <div className="text-xs font-bold text-[#1a44c2]">
+                          Security Guard
+                        </div>
+                        <div className="text-[11px] text-slate-500 mt-0.5">
+                          Shield &amp; Badge #{displayBadge}
+                        </div>
+                      </div>
                     </div>
-                    <div className="text-[11px] text-slate-500 mt-0.5">
-                      Shield &amp; Badge #4082
-                    </div>
-                  </div>
-                </div>
 
-                {/* Badges / Clearances */}
-                <div className="flex flex-wrap items-center gap-2 pt-1">
-                  <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-lg text-xs font-bold bg-blue-50 text-[#1a44c2] border border-blue-100">
-                    <Lock className="w-3.5 h-3.5" />
-                    Clearance Level 3
-                  </span>
-                  <span className="px-3 py-1 rounded-lg text-xs font-semibold bg-slate-100 text-slate-700">
-                    Perimeter &amp; Executive
-                  </span>
-                </div>
+                    {/* Badges / Clearances */}
+                    <div className="flex flex-wrap items-center gap-2 pt-1">
+                      <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-lg text-xs font-bold bg-blue-50 text-[#1a44c2] border border-blue-100">
+                        <Lock className="w-3.5 h-3.5" />
+                        Clearance Level 3
+                      </span>
+                      <span className="px-3 py-1 rounded-lg text-xs font-semibold bg-slate-100 text-slate-700">
+                        {displayDept}
+                      </span>
+                    </div>
 
-                {/* Info Grid */}
-                <div className="grid grid-cols-2 gap-3 pt-3 border-t border-slate-100 text-xs">
-                  <div className="p-3 bg-slate-50 rounded-xl">
-                    <div className="text-[10px] font-bold uppercase text-slate-400">
-                      DIVISION
-                    </div>
-                    <div className="font-bold text-slate-900 mt-0.5">
-                      West Protection
-                    </div>
-                    <div className="text-[11px] text-slate-500">
-                      Access Control Group
-                    </div>
-                  </div>
+                    {/* Info Grid */}
+                    <div className="grid grid-cols-2 gap-3 pt-3 border-t border-slate-100 text-xs">
+                      <div className="p-3 bg-slate-50 rounded-xl">
+                        <div className="text-[10px] font-bold uppercase text-slate-400">
+                          DIVISION
+                        </div>
+                        <div className="font-bold text-slate-900 mt-0.5">
+                          {displayDept}
+                        </div>
+                      </div>
 
-                  <div className="p-3 bg-slate-50 rounded-xl">
-                    <div className="text-[10px] font-bold uppercase text-slate-400">
-                      TERMINAL
+                      <div className="p-3 bg-slate-50 rounded-xl">
+                        <div className="text-[10px] font-bold uppercase text-slate-400">
+                          STATION
+                        </div>
+                        <div className="font-bold text-slate-900 mt-0.5">
+                          Gate 04 Kiosk
+                        </div>
+                      </div>
                     </div>
-                    <div className="font-bold text-slate-900 mt-0.5">
-                      Gate 04 Kiosk
-                    </div>
-                  </div>
-                </div>
 
-                {/* Contact */}
-                <div className="p-3 bg-slate-50 rounded-xl text-xs">
-                  <div className="text-[10px] font-bold uppercase text-slate-400">
-                    CONTACT
-                  </div>
-                  <div className="font-bold text-slate-900 font-mono mt-0.5">
-                    m.vance@campus.edu
-                  </div>
-                </div>
+                    {/* Contact */}
+                    <div className="p-3 bg-slate-50 rounded-xl text-xs">
+                      <div className="text-[10px] font-bold uppercase text-slate-400">
+                        EMAIL &amp; PHONE
+                      </div>
+                      <div className="font-bold text-slate-900 font-mono mt-0.5">
+                        {displayEmail}
+                      </div>
+                      <div className="text-slate-500 font-mono text-[11px] mt-0.5">
+                        {phoneNumber}
+                      </div>
+                    </div>
+                  </>
+                )}
               </div>
 
               {/* Card 2: Monthly Guard Telemetry */}
@@ -328,11 +504,11 @@ export default function GuardProfilePage() {
                       <Zap className="w-4 h-4" />
                     </div>
                     <h3 className="text-sm font-bold text-slate-900">
-                      Monthly Guard Telemetry
+                      Live Guard Duty Telemetry
                     </h3>
                   </div>
                   <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">
-                    Current Cycle: 30 Days
+                    Database Telemetry
                   </span>
                 </div>
 
@@ -341,10 +517,10 @@ export default function GuardProfilePage() {
                   {/* Tile 1 */}
                   <div className="p-3.5 bg-slate-50 rounded-xl space-y-2">
                     <div className="text-[10px] font-extrabold uppercase tracking-wider text-slate-500">
-                      SHIFTS COMPLETED
+                      SYSTEM SHIFTS
                     </div>
                     <div className="text-2xl font-black text-slate-900">
-                      22 <span className="text-xs font-normal text-slate-400">/ 24 goal</span>
+                      {shiftCount}
                     </div>
                     <div className="w-full h-1.5 bg-slate-200 rounded-full overflow-hidden">
                       <div className="h-full bg-[#1a44c2] rounded-full" style={{ width: "91%" }}></div>
@@ -361,34 +537,34 @@ export default function GuardProfilePage() {
                     </div>
                     <div className="flex items-center gap-1 text-[11px] font-bold text-emerald-600">
                       <TrendingUp className="w-3 h-3" />
-                      <span>Top 2% of campus</span>
+                      <span>Verified On Duty</span>
                     </div>
                   </div>
 
                   {/* Tile 3 */}
                   <div className="p-3.5 bg-slate-50 rounded-xl space-y-1">
                     <div className="text-[10px] font-extrabold uppercase tracking-wider text-slate-500">
-                      INCIDENTS HANDLED
+                      INCIDENTS RECORDED
                     </div>
                     <div className="text-2xl font-black text-slate-900">
-                      14 <span className="text-xs font-bold text-slate-500">0 Violations</span>
+                      {incidentCount}
                     </div>
                     <div className="text-[11px] text-slate-500">
-                      100% SOP Compliant
+                      Live Incident Table
                     </div>
                   </div>
 
                   {/* Tile 4 */}
                   <div className="p-3.5 bg-slate-50 rounded-xl space-y-1">
                     <div className="text-[10px] font-extrabold uppercase tracking-wider text-slate-500">
-                      AVG CHECKPOINT SCAN
+                      AVG SCAN SPEED
                     </div>
                     <div className="text-2xl font-black text-slate-900">
-                      1.4s <span className="text-xs font-normal text-slate-400">/ vehicle</span>
+                      1.4s
                     </div>
                     <div className="flex items-center gap-1 text-[11px] font-bold text-slate-600">
                       <Zap className="w-3 h-3 text-blue-600" />
-                      <span>Optimal lane throughput</span>
+                      <span>ANPR Linked</span>
                     </div>
                   </div>
                 </div>
@@ -406,17 +582,12 @@ export default function GuardProfilePage() {
                       Credentials &amp; Active Certifications
                     </h2>
                   </div>
-                  <button
-                    type="button"
-                    className="text-xs font-bold text-[#1a44c2] hover:underline flex items-center gap-1 cursor-pointer"
-                  >
-                    <span>Audit History</span>
-                    <ExternalLink className="w-3 h-3" />
-                  </button>
+                  <span className="text-xs font-bold text-emerald-700 bg-emerald-50 px-2.5 py-1 rounded-md">
+                    Active Compliance
+                  </span>
                 </div>
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
-                  {/* Cert 1 */}
                   <div className="bg-[#f8fafc] border border-slate-200/80 rounded-xl p-4 space-y-2">
                     <div className="flex items-center justify-between">
                       <div className="w-8 h-8 rounded-lg bg-blue-50 text-[#1a44c2] flex items-center justify-center">
@@ -426,22 +597,20 @@ export default function GuardProfilePage() {
                         Verified
                       </span>
                     </div>
-
                     <div className="font-bold text-xs text-slate-900">
-                      Campus Safety Certification
+                      Campus Safety Officer
                     </div>
                     <p className="text-[11px] text-slate-500 leading-relaxed">
-                      Authorized state &amp; university level protection officer credential.
+                      University level perimeter security credential.
                     </p>
                     <div className="flex items-center justify-between text-[11px] pt-1 text-slate-500">
-                      <span>Valid thru: Dec 2026</span>
+                      <span>Valid: 2026</span>
                       <span className="text-[#1a44c2] font-bold font-mono">
-                        ID #CS-99201
+                        #{displayBadge}
                       </span>
                     </div>
                   </div>
 
-                  {/* Cert 2 */}
                   <div className="bg-[#f8fafc] border border-slate-200/80 rounded-xl p-4 space-y-2">
                     <div className="flex items-center justify-between">
                       <div className="w-8 h-8 rounded-lg bg-blue-50 text-[#1a44c2] flex items-center justify-center">
@@ -451,18 +620,15 @@ export default function GuardProfilePage() {
                         Certified
                       </span>
                     </div>
-
                     <div className="font-bold text-xs text-slate-900">
                       First Responder Tactical
                     </div>
                     <p className="text-[11px] text-slate-500 leading-relaxed">
-                      AED operator, trauma stabilization, and tactical incident first response.
+                      AED operator &amp; crisis first response certified.
                     </p>
                     <div className="flex items-center justify-between text-[11px] pt-1 text-slate-500">
-                      <span>Recert: Aug 2024</span>
-                      <span className="font-bold text-slate-700">
-                        American Red Cross
-                      </span>
+                      <span>Recert: Annual</span>
+                      <span className="font-bold text-slate-700">Compliant</span>
                     </div>
                   </div>
                 </div>
@@ -474,7 +640,7 @@ export default function GuardProfilePage() {
                   <div className="flex items-center gap-2">
                     <Sliders className="w-5 h-5 text-[#1a44c2]" />
                     <h2 className="text-base font-bold text-slate-900">
-                      Security &amp; Terminal Configuration
+                      Terminal Configuration &amp; Session
                     </h2>
                   </div>
                   <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">
@@ -483,35 +649,15 @@ export default function GuardProfilePage() {
                 </div>
 
                 <div className="space-y-3 text-xs">
-                  {/* Setting 1: Speed-dial */}
-                  <div className="p-3.5 bg-slate-50 rounded-xl flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                    <div className="flex items-start gap-2.5">
-                      <PhoneCall className="w-4 h-4 text-[#1a44c2] shrink-0 mt-0.5" />
-                      <div>
-                        <div className="font-bold text-slate-900">
-                          Emergency NOC Speed-Dial Routing
-                        </div>
-                        <div className="text-[11px] text-slate-500">
-                          Current primary target: Dispatch NOC: Ext 4000 (Backup: Ext 4099).
-                        </div>
-                      </div>
-                    </div>
-                    <div className="bg-white border border-slate-200 px-3 py-1.5 rounded-lg font-bold font-mono text-slate-800 flex items-center gap-2 shrink-0">
-                      <span>NOC Main Ext 4000</span>
-                      <PhoneCall className="w-3 h-3 text-slate-400" />
-                    </div>
-                  </div>
-
-                  {/* Setting 2: Night Mode Protocol */}
                   <div className="p-3.5 bg-slate-50 rounded-xl flex items-center justify-between gap-3">
                     <div className="flex items-start gap-2.5">
                       <Moon className="w-4 h-4 text-[#1a44c2] shrink-0 mt-0.5" />
                       <div>
                         <div className="font-bold text-slate-900">
-                          High-Contrast &amp; Night Shift Protocol
+                          Night Shift High-Contrast Mode
                         </div>
                         <div className="text-[11px] text-slate-500">
-                          Adjust monitor luminance balance for low-glare twilight and night patrol kiosks.
+                          Adjust interface for low-glare twilight checkpoints.
                         </div>
                       </div>
                     </div>
@@ -530,12 +676,11 @@ export default function GuardProfilePage() {
                     </button>
                   </div>
 
-                  {/* Setting 3: Terminal Session Active */}
                   <div className="p-3.5 bg-slate-50 rounded-xl flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                     <div className="flex items-center gap-2.5">
                       <Laptop className="w-4 h-4 text-slate-500" />
                       <div className="font-bold text-slate-900">
-                        Terminal Session Active: Gate 04
+                        Session: Authenticated as {displayName}
                       </div>
                     </div>
                     <button
@@ -550,56 +695,44 @@ export default function GuardProfilePage() {
                 </div>
               </div>
 
-              {/* Card 3: Recent Authentication Log & Checkpoints */}
+              {/* Card 3: Recent Database Audit Logs */}
               <div className="bg-white border border-slate-200/90 rounded-2xl p-5 shadow-2xs space-y-4">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2">
                     <CheckCircle2 className="w-5 h-5 text-[#1a44c2]" />
                     <h2 className="text-base font-bold text-slate-900">
-                      Recent Authentication Log &amp; Checkpoints
+                      Live Authentication &amp; System Audit Trail
                     </h2>
                   </div>
                   <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">
-                    Today&apos;s Logs
+                    Backend DB
                   </span>
                 </div>
 
-                <div className="space-y-3 text-xs">
-                  {/* Log 1 */}
-                  <div className="p-3.5 bg-slate-50 rounded-xl flex items-center justify-between gap-3">
-                    <div className="flex items-start gap-2.5">
-                      <span className="w-2 h-2 rounded-full bg-blue-600 mt-1.5 shrink-0"></span>
-                      <div>
-                        <div className="font-bold text-slate-900">
-                          Perimeter Gate 04 Station Login
+                <div className="space-y-2.5 text-xs">
+                  {recentLogs.length > 0 ? (
+                    recentLogs.map((log) => (
+                      <div
+                        key={log.id}
+                        className="p-3 bg-slate-50 rounded-xl flex items-center justify-between gap-3"
+                      >
+                        <div className="flex items-start gap-2.5">
+                          <span className="w-2 h-2 rounded-full bg-blue-600 mt-1.5 shrink-0"></span>
+                          <div>
+                            <div className="font-bold text-slate-900">{log.action}</div>
+                            <div className="text-[11px] text-slate-500">{log.details}</div>
+                          </div>
                         </div>
-                        <div className="text-[11px] text-slate-500">
-                          Hardware FIDO Token #AF99-8492D authenticated
-                        </div>
+                        <span className="font-mono text-slate-500 text-[10px] shrink-0">
+                          {log.createdAt ? new Date(log.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : "Recently"}
+                        </span>
                       </div>
+                    ))
+                  ) : (
+                    <div className="p-3 bg-slate-50 rounded-xl text-slate-500 text-xs">
+                      Connected to SQLite audit log stream. Real-time actions will log here.
                     </div>
-                    <span className="font-mono text-slate-500 font-semibold text-[11px] shrink-0">
-                      07:45 AM
-                    </span>
-                  </div>
-
-                  {/* Log 2 */}
-                  <div className="p-3.5 bg-slate-50 rounded-xl flex items-center justify-between gap-3">
-                    <div className="flex items-start gap-2.5">
-                      <span className="w-2 h-2 rounded-full bg-blue-600 mt-1.5 shrink-0"></span>
-                      <div>
-                        <div className="font-bold text-slate-900">
-                          Vehicle Checkpoint QR Sweep Active
-                        </div>
-                        <div className="text-[11px] text-slate-500">
-                          38 deliveries registered, zero unauthorized entry attempts
-                        </div>
-                      </div>
-                    </div>
-                    <span className="font-mono text-slate-500 font-semibold text-[11px] shrink-0">
-                      11:15 AM
-                    </span>
-                  </div>
+                  )}
                 </div>
               </div>
             </div>

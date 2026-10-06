@@ -10,4 +10,5 @@ import java.util.List;
 public interface IncidentReportRepository extends JpaRepository<IncidentReport, Long> {
     List<IncidentReport> findByStatus(String status);
     List<IncidentReport> findByRoutedTo(String routedTo);
+    List<IncidentReport> findAllByOrderByCreatedAtDesc();
 }
