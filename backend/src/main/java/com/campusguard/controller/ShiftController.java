@@ -14,9 +14,11 @@ import java.util.List;
 public class ShiftController {
 
     private final ShiftLogRepository shiftRepo;
+    private final com.campusguard.service.DutyRosterService dutyRosterService;
 
-    public ShiftController(ShiftLogRepository shiftRepo) {
+    public ShiftController(ShiftLogRepository shiftRepo, com.campusguard.service.DutyRosterService dutyRosterService) {
         this.shiftRepo = shiftRepo;
+        this.dutyRosterService = dutyRosterService;
     }
 
     @GetMapping
@@ -61,5 +63,31 @@ public class ShiftController {
             shift.setNotes((shift.getNotes() != null ? shift.getNotes() + " | " : "") + "Automatic no-show escalation triggered after 15 min unstaffed.");
             return ResponseEntity.ok(shiftRepo.save(shift));
         }).orElse(ResponseEntity.notFound().build());
+    }
+
+    @PostMapping("/schedule")
+    public ResponseEntity<?> scheduleShift(
+            @RequestBody com.campusguard.model.DutyRoster roster,
+            @RequestHeader(value = "X-Supervisor-Name", required = false) String supervisorNameHeader,
+            @RequestHeader(value = "X-Supervisor-Badge", required = false) String supervisorBadgeHeader
+    ) {
+        try {
+            com.campusguard.model.DutyRoster created = dutyRosterService.createShiftSchedule(roster, supervisorNameHeader, supervisorBadgeHeader);
+            return new ResponseEntity<>(created, HttpStatus.CREATED);
+        } catch (IllegalArgumentException ex) {
+            return ResponseEntity.badRequest().body(java.util.Map.of("error", ex.getMessage()));
+        }
+    }
+
+    @GetMapping("/roster")
+    public ResponseEntity<List<com.campusguard.model.DutyRoster>> getDutyRoster(
+            @RequestParam(required = false) @org.springframework.format.annotation.DateTimeFormat(iso = org.springframework.format.annotation.DateTimeFormat.ISO.DATE) java.time.LocalDate date,
+            @RequestParam(required = false) String status,
+            @RequestParam(required = false) String postLocation,
+            @RequestParam(required = false) String supervisor,
+            @RequestParam(required = false) String guard
+    ) {
+        List<com.campusguard.model.DutyRoster> roster = dutyRosterService.searchDutyRoster(date, status, postLocation, supervisor, guard);
+        return ResponseEntity.ok(roster);
     }
 }
