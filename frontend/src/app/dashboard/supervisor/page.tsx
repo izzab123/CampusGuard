@@ -55,39 +55,66 @@ export default function ShiftSupervisorDashboard() {
 
             {/* Top Navigation Links */}
             <nav className="hidden md:flex items-center gap-6 pl-4 text-xs font-semibold text-slate-600">
-              {["Dashboard", "Shifts", "Escalations", "Logbook", "Notifications", "Profile"].map((tab) => (
-                <button
-                  key={tab}
-                  type="button"
-                  onClick={() => setActiveTab(tab)}
-                  className={`py-5 relative transition cursor-pointer ${
-                    activeTab === tab
-                      ? "text-blue-700 font-bold border-b-2 border-blue-700"
-                      : "hover:text-slate-900"
-                  }`}
-                >
-                  {tab}
-                </button>
-              ))}
+              <Link
+                href="/dashboard/supervisor"
+                className="py-5 relative transition cursor-pointer text-blue-700 font-bold border-b-2 border-blue-700"
+              >
+                Dashboard
+              </Link>
+              <Link
+                href="/dashboard/supervisor/shifts"
+                className="py-5 relative transition cursor-pointer hover:text-slate-900"
+              >
+                Shifts
+              </Link>
+              <Link
+                href="/dashboard/supervisor/escalations"
+                className="py-5 relative transition cursor-pointer hover:text-slate-900"
+              >
+                Escalations
+              </Link>
+              <Link
+                href="/dashboard/supervisor/logbook"
+                className="py-5 relative transition cursor-pointer hover:text-slate-900"
+              >
+                Logbook
+              </Link>
+              <Link
+                href="/dashboard/supervisor/notifications"
+                className="py-5 relative transition cursor-pointer hover:text-slate-900"
+              >
+                Notifications
+              </Link>
+              <Link
+                href="/dashboard/supervisor/profile"
+                className="py-5 relative transition cursor-pointer hover:text-slate-900"
+              >
+                Profile
+              </Link>
             </nav>
           </div>
 
           {/* Right Status & Profile */}
           <div className="flex items-center gap-3">
-            <span className="w-2.5 h-2.5 rounded-full bg-emerald-500"></span>
+            <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse"></span>
 
-            <button
-              type="button"
-              aria-label="Notifications"
-              className="w-9 h-9 rounded-full bg-slate-100 hover:bg-slate-200 flex items-center justify-center text-slate-600 transition"
-            >
-              <Bell className="w-4 h-4" />
-            </button>
+            <Link href="/dashboard/supervisor/notifications" className="relative cursor-pointer">
+              <div className="w-9 h-9 rounded-full bg-slate-100 hover:bg-slate-200 flex items-center justify-center text-slate-600 transition">
+                <Bell className="w-4 h-4" />
+              </div>
+              <span className="absolute top-1 right-1 w-4 h-4 rounded-full bg-red-600 text-white text-[10px] font-bold flex items-center justify-center border-2 border-white">
+                3
+              </span>
+            </Link>
 
             {/* Supervisor Profile */}
             <div className="flex items-center gap-2.5 pl-2 border-l border-slate-200">
-              <div className="w-9 h-9 rounded-full bg-[#0a2f77] text-white flex items-center justify-center font-bold text-xs">
-                ER
+              <div className="w-9 h-9 rounded-full bg-[#1a44c2] text-white flex items-center justify-center font-bold text-xs overflow-hidden">
+                <img
+                  src="/supervisor-elena.jpg"
+                  alt="Supervisor Elena"
+                  className="w-full h-full object-cover"
+                />
               </div>
               <div className="hidden lg:flex flex-col text-left">
                 <span className="text-xs font-bold text-slate-900 leading-tight">
@@ -101,7 +128,7 @@ export default function ShiftSupervisorDashboard() {
                 type="button"
                 onClick={() => performLogout()}
                 title="Log out"
-                className="ml-1 p-2 rounded-lg text-slate-400 hover:text-red-600 hover:bg-red-50 transition"
+                className="ml-1 p-2 rounded-lg text-slate-400 hover:text-red-600 hover:bg-red-50 transition cursor-pointer"
               >
                 <LogOut className="w-4 h-4" />
               </button>
@@ -120,26 +147,25 @@ export default function ShiftSupervisorDashboard() {
             </div>
             <nav className="space-y-1">
               {[
-                { name: "Dashboard", icon: ShieldCheck },
-                { name: "Shifts", icon: Calendar },
-                { name: "Escalations", icon: AlertTriangle },
-                { name: "Logbook", icon: Layers },
-                { name: "Notifications", icon: Bell },
-                { name: "Profile", icon: UserCheck },
+                { name: "Dashboard", href: "/dashboard/supervisor", icon: ShieldCheck, active: true },
+                { name: "Shifts", href: "/dashboard/supervisor/shifts", icon: Calendar },
+                { name: "Escalations", href: "/dashboard/supervisor/escalations", icon: AlertTriangle },
+                { name: "Logbook", href: "/dashboard/supervisor/logbook", icon: Layers },
+                { name: "Notifications", href: "/dashboard/supervisor/notifications", icon: Bell },
+                { name: "Profile", href: "/dashboard/supervisor/profile", icon: UserCheck },
               ].map((item) => (
-                <button
+                <Link
                   key={item.name}
-                  type="button"
-                  onClick={() => setActiveTab(item.name)}
+                  href={item.href}
                   className={`w-full flex items-center gap-2.5 px-3.5 py-2.5 rounded-lg text-xs font-semibold transition ${
-                    activeTab === item.name
-                      ? "bg-[#0a2f77] text-white shadow-xs"
+                    item.active
+                      ? "bg-[#1a44c2] text-white shadow-xs"
                       : "text-slate-600 hover:bg-slate-100"
                   }`}
                 >
                   <item.icon className="w-4 h-4" />
                   <span>{item.name}</span>
-                </button>
+                </Link>
               ))}
             </nav>
           </div>
