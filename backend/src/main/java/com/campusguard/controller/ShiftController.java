@@ -21,7 +21,19 @@ public class ShiftController {
 
     @GetMapping
     public List<ShiftLog> getShifts() {
-        return shiftRepo.findAll();
+        return shiftRepo.findAllByOrderByShiftStartDesc();
+    }
+
+    @PostMapping
+    public ResponseEntity<ShiftLog> scheduleShift(@RequestBody ShiftLog shift) {
+        if (shift.getShiftStart() == null) {
+            shift.setShiftStart(LocalDateTime.now());
+        }
+        if (shift.getStatus() == null || shift.getStatus().isBlank()) {
+            shift.setStatus("SCHEDULED");
+        }
+        ShiftLog saved = shiftRepo.save(shift);
+        return new ResponseEntity<>(saved, HttpStatus.CREATED);
     }
 
     @PostMapping("/check-in")
@@ -31,6 +43,15 @@ public class ShiftController {
         shift.setBiometricVerified(true);
         ShiftLog saved = shiftRepo.save(shift);
         return new ResponseEntity<>(saved, HttpStatus.CREATED);
+    }
+
+    @PostMapping("/{id}/checkout")
+    public ResponseEntity<ShiftLog> checkOut(@PathVariable Long id) {
+        return shiftRepo.findById(id).map(shift -> {
+            shift.setStatus("COMPLETED");
+            shift.setShiftEnd(LocalDateTime.now());
+            return ResponseEntity.ok(shiftRepo.save(shift));
+        }).orElse(ResponseEntity.notFound().build());
     }
 
     @PostMapping("/{id}/escalate")
