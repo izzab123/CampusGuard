@@ -13,6 +13,7 @@ import {
   Phone,
   Headphones
 } from "lucide-react";
+import { getApiUrl } from "@/lib/api";
 
 interface FeatureModule {
   id: string;
@@ -94,7 +95,7 @@ export default function FeaturesPage() {
     // Attempt fetching live feature config from Spring Boot backend
     const fetchBackendFeatures = async () => {
       try {
-        const res = await fetch("http://localhost:8080/api/features");
+        const res = await fetch(`${getApiUrl()}/api/features`);
         if (res.ok) {
           const json = await res.json();
           setData(json);

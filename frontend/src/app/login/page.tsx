@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
@@ -18,14 +18,7 @@ import {
   CheckCircle2
 } from "lucide-react";
 import { saveAuthUser, getRoleDashboardPath } from "@/lib/auth";
-
-const SEED_ACCOUNTS = [
-  { role: "Student", email: "student@campusguard.edu", name: "Alex Morgan" },
-  { role: "Proctor and DSW", email: "proctor@campusguard.edu", name: "Dr. Arthur Vance" },
-  { role: "Security Guard", email: "guard@campusguard.edu", name: "Officer Marcus Vance" },
-  { role: "Shift Supervisor", email: "supervisor@campusguard.edu", name: "Elena Rostova" },
-  { role: "Admin", email: "admin@campusguard.edu", name: "System Admin" },
-];
+import { getApiUrl } from "@/lib/api";
 
 export default function LoginPage() {
   const router = useRouter();
@@ -33,16 +26,32 @@ export default function LoginPage() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [role, setRole] = useState("");
+  const [availableRoles, setAvailableRoles] = useState<string[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
 
-  const fillSeedAccount = (account: typeof SEED_ACCOUNTS[0]) => {
-    setEmail(account.email);
-    setPassword("12345678");
-    setRole(account.role);
-    setError(null);
-  };
+  useEffect(() => {
+    fetch(`${getApiUrl()}/api/auth/roles`)
+      .then((res) => {
+        if (!res.ok) throw new Error("Failed to load roles");
+        return res.json();
+      })
+      .then((roles) => {
+        if (Array.isArray(roles)) {
+          setAvailableRoles(roles);
+        }
+      })
+      .catch(() => {
+        setAvailableRoles([
+          "Student",
+          "Proctor and DSW",
+          "Security Guard",
+          "Shift Supervisor",
+          "Admin",
+        ]);
+      });
+  }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -51,7 +60,7 @@ export default function LoginPage() {
     setLoading(true);
 
     try {
-      const response = await fetch("http://localhost:8080/api/auth/login", {
+      const response = await fetch(`${getApiUrl()}/api/auth/login`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -81,7 +90,6 @@ export default function LoginPage() {
 
       setSuccess(`Authenticated as ${data.fullName || data.email} (${data.role}). Redirecting...`);
 
-      // Redirect to the role-specific dashboard
       const targetPath = getRoleDashboardPath(data.role);
       setTimeout(() => {
         router.push(targetPath);
@@ -141,7 +149,7 @@ export default function LoginPage() {
               </span>
             </div>
             <h1 className="text-base font-semibold text-slate-800 tracking-tight">
-              Institutional Clearance & Authentication
+              Institutional Clearance &amp; Authentication
             </h1>
             <p className="text-xs text-slate-500 mt-1">
               Secure single sign-on access across institutional safety roles
@@ -190,7 +198,7 @@ export default function LoginPage() {
                   required
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  placeholder="e.g. student@campusguard.edu"
+                  placeholder="e.g. your-email@campusguard.edu"
                   className="w-full pl-10 pr-4 py-2.5 text-sm bg-white border border-slate-200 rounded-lg text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-600 focus:border-transparent transition"
                 />
               </div>
@@ -240,13 +248,13 @@ export default function LoginPage() {
               </div>
             </div>
 
-            {/* Field 3: Five Institutional Roles */}
+            {/* Field 3: Institutional Role */}
             <div>
               <div className="flex items-center justify-between text-xs mb-1.5">
                 <label htmlFor="role" className="font-semibold text-slate-800">
                   Assigned Clearance Role
                 </label>
-                <span className="text-slate-400">5 Available Roles</span>
+                <span className="text-slate-400">Optional (Auto-detected)</span>
               </div>
               <div className="relative">
                 <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400">
@@ -263,11 +271,11 @@ export default function LoginPage() {
                   <option value="">
                     Auto-detect role from credentials (or choose)
                   </option>
-                  <option value="Student">Student</option>
-                  <option value="Proctor and DSW">Proctor and DSW</option>
-                  <option value="Security Guard">Security Guard</option>
-                  <option value="Shift Supervisor">Shift Supervisor</option>
-                  <option value="Admin">Admin</option>
+                  {availableRoles.map((r) => (
+                    <option key={r} value={r}>
+                      {r}
+                    </option>
+                  ))}
                 </select>
                 <div className="absolute inset-y-0 right-0 pr-3.5 flex items-center pointer-events-none text-slate-400">
                   <ChevronDown className="w-4 h-4" />
@@ -296,36 +304,10 @@ export default function LoginPage() {
               </button>
             </div>
           </form>
-
-          {/* Quick Seed Accounts Quick-Fill Section */}
-          <div className="mt-6 pt-5 border-t border-slate-100">
-            <div className="flex items-center justify-between mb-2.5">
-              <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500">
-                Institutional Seed Accounts (Pass: 12345678)
-              </span>
-            </div>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5 text-xs">
-              {SEED_ACCOUNTS.map((acc) => (
-                <button
-                  key={acc.email}
-                  type="button"
-                  onClick={() => fillSeedAccount(acc)}
-                  className={`text-left p-2 rounded-lg border transition text-[11px] flex flex-col hover:border-blue-400 hover:bg-blue-50/50 ${
-                    email === acc.email
-                      ? "border-blue-600 bg-blue-50 text-blue-900 font-semibold"
-                      : "border-slate-200 bg-slate-50/70 text-slate-700"
-                  }`}
-                >
-                  <span className="font-semibold text-slate-800">{acc.role}</span>
-                  <span className="text-slate-500 truncate">{acc.email}</span>
-                </button>
-              ))}
-            </div>
-          </div>
         </div>
       </main>
 
-      {/* Subtle bottom decoration */}
+      {/* Subtle bottom footer */}
       <footer className="py-4 text-center text-xs text-slate-400 border-t border-slate-100">
         CampusGuard Security Operations Center • 24/7 Dispatch Hotline: x9110
       </footer>

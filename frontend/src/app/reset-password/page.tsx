@@ -14,6 +14,7 @@ import {
   Loader2,
   KeyRound
 } from "lucide-react";
+import { getApiUrl } from "@/lib/api";
 
 function ResetPasswordForm() {
   const router = useRouter();
@@ -35,7 +36,7 @@ function ResetPasswordForm() {
     if (tokenFromUrl) {
       setToken(tokenFromUrl);
       // Validate token on mount
-      fetch(`http://localhost:8080/api/auth/validate-token?token=${encodeURIComponent(tokenFromUrl)}`)
+      fetch(`${getApiUrl()}/api/auth/validate-token?token=${encodeURIComponent(tokenFromUrl)}`)
         .then(async (res) => {
           const data = await res.json();
           if (res.ok && data.valid) {
@@ -78,7 +79,7 @@ function ResetPasswordForm() {
     setLoading(true);
 
     try {
-      const response = await fetch("http://localhost:8080/api/auth/reset-password", {
+      const response = await fetch(`${getApiUrl()}/api/auth/reset-password`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({

@@ -10,8 +10,9 @@ import {
   AlertCircle,
   CheckCircle2,
   Loader2,
-  ExternalLink
+  ExternalLink,
 } from "lucide-react";
+import { getApiUrl } from "@/lib/api";
 
 export default function ForgotPasswordPage() {
   const [email, setEmail] = useState("");
@@ -28,7 +29,7 @@ export default function ForgotPasswordPage() {
     setLoading(true);
 
     try {
-      const response = await fetch("http://localhost:8080/api/auth/forgot-password", {
+      const response = await fetch(`${getApiUrl()}/api/auth/forgot-password`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email: email.trim() }),
