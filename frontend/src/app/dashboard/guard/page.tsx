@@ -182,10 +182,10 @@ export default function SecurityGuardDashboard() {
                 Dashboard
               </Link>
               <Link
-                href="/dashboard/guard/roster"
+                href="/dashboard/guard/view-my-duty"
                 className="py-5 relative transition cursor-pointer hover:text-slate-900"
               >
-                Duty Roster
+                View My Duty
               </Link>
               <Link
                 href="/dashboard/guard/handoff"
@@ -274,11 +274,11 @@ export default function SecurityGuardDashboard() {
                 <span>Active Duty Monitor</span>
               </Link>
               <Link
-                href="/dashboard/guard/roster"
+                href="/dashboard/guard/view-my-duty"
                 className="w-full flex items-center gap-2.5 px-3.5 py-2.5 rounded-lg text-xs font-medium text-slate-600 hover:bg-slate-100 transition"
               >
                 <CalendarDays className="w-4 h-4" />
-                <span>Duty Roster &amp; Shifts</span>
+                <span>View My Duty</span>
               </Link>
               <Link
                 href="/dashboard/guard/handoff"
@@ -322,11 +322,11 @@ export default function SecurityGuardDashboard() {
 
             <div className="flex flex-wrap items-center gap-2.5">
               <Link
-                href="/dashboard/guard/roster"
+                href="/dashboard/guard/view-my-duty"
                 className="px-3.5 py-2 bg-blue-700 hover:bg-blue-800 text-white font-bold text-xs rounded-lg flex items-center gap-1.5 shadow-xs transition"
               >
                 <CalendarDays className="w-3.5 h-3.5" />
-                <span>View Full Duty Roster</span>
+                <span>View My Duty</span>
               </Link>
               <Link
                 href="/dashboard/guard/parking"
@@ -364,7 +364,7 @@ export default function SecurityGuardDashboard() {
                   ● {todayDuty?.status || activeShift?.status || "ON_DUTY"}
                 </span>
                 <Link
-                  href="/dashboard/guard/roster"
+                  href="/dashboard/guard/view-my-duty"
                   className="text-xs font-bold text-blue-700 hover:underline flex items-center gap-0.5"
                 >
                   <span>Upcoming Duties ({upcomingDuties.length})</span>

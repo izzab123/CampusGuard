@@ -121,8 +121,8 @@ export default function GuardHandoffPage() {
               <Link href="/dashboard/guard" className="py-5 hover:text-slate-900 transition">
                 Dashboard
               </Link>
-              <Link href="/dashboard/guard/roster" className="py-5 hover:text-slate-900 transition">
-                Duty Roster
+              <Link href="/dashboard/guard/view-my-duty" className="py-5 hover:text-slate-900 transition">
+                View My Duty
               </Link>
               <Link href="/dashboard/guard/handoff" className="py-5 text-blue-700 font-bold border-b-2 border-blue-700">
                 Handoff

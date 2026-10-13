@@ -175,10 +175,10 @@ export default function GuardProfilePage() {
                 Dashboard
               </Link>
               <Link
-                href="/dashboard/guard/roster"
+                href="/dashboard/guard/view-my-duty"
                 className="py-5 relative transition cursor-pointer text-slate-600 hover:text-slate-900"
               >
-                Duty Roster
+                View My Duty
               </Link>
               <Link
                 href="/dashboard/guard/handoff"
