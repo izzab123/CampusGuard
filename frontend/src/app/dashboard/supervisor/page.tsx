@@ -19,7 +19,10 @@ import {
   Calendar,
   AlertCircle,
   CheckCircle2,
-  Send
+  Send,
+  Plus,
+  X,
+  Loader2
 } from "lucide-react";
 import { getStoredAuthUser, performLogout, AuthUser } from "@/lib/auth";
 import { API_ENDPOINTS } from "@/lib/api";
@@ -57,6 +60,14 @@ export default function ShiftSupervisorDashboard() {
   const [actionNotice, setActionNotice] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
 
+  // Incident Modal State
+  const [isIncidentModalOpen, setIsIncidentModalOpen] = useState(false);
+  const [incTitle, setIncTitle] = useState("");
+  const [incLocation, setIncLocation] = useState("North Perimeter & Gate 04");
+  const [incSeverity, setIncSeverity] = useState("HIGH");
+  const [incDescription, setIncDescription] = useState("");
+  const [isSubmittingIncident, setIsSubmittingIncident] = useState(false);
+
   useEffect(() => {
     setUser(getStoredAuthUser());
     loadData();
@@ -72,7 +83,17 @@ export default function ShiftSupervisorDashboard() {
 
       if (shiftsRes.ok) {
         const shiftsData = await shiftsRes.json();
-        setShifts(Array.isArray(shiftsData) ? shiftsData : []);
+        const mapped: ShiftItem[] = (Array.isArray(shiftsData) ? shiftsData : []).map((s: any) => ({
+          ...s,
+          officerName: s.officerName || s.guardName || "Duty Officer",
+          badgeNumber: s.badgeNumber || s.guardBadgeNumber || "SEC-001",
+          gatePost: s.gatePost || s.postLocation || "Campus Checkpoint",
+          sector: s.sector || (s.postLocation && s.postLocation.includes("West") ? "West Perimeter" : s.postLocation && s.postLocation.includes("Library") ? "Library Esplanade" : s.postLocation && s.postLocation.includes("East") ? "East Campus" : "North Academic Quad"),
+          shiftHours: s.shiftHours || (s.startTime && s.endTime ? `${s.startTime} - ${s.endTime}` : "08:00 - 16:00"),
+          radioChannel: s.radioChannel || "Radio Ch 1",
+          status: s.status || "ON_DUTY",
+        }));
+        setShifts(mapped);
       }
       if (incRes.ok) {
         const incData = await incRes.json();
@@ -82,6 +103,40 @@ export default function ShiftSupervisorDashboard() {
       // ignore
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  const handleCreateIncident = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!incTitle.trim()) return;
+    setIsSubmittingIncident(true);
+    try {
+      const res = await fetch(API_ENDPOINTS.incidents.base, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          title: incTitle,
+          description: incDescription,
+          severity: incSeverity,
+          location: incLocation,
+          reporterName: user?.fullName || user?.name || "Supervisor Elena Rostova",
+          reporterRole: "Shift Supervisor",
+        }),
+      });
+      if (res.ok) {
+        showNotification("Incident reported and routed to Dispatch.");
+        setIsIncidentModalOpen(false);
+        setIncTitle("");
+        setIncDescription("");
+        loadData();
+      } else {
+        const err = await res.json().catch(() => null);
+        showNotification(err?.message || "Failed to log incident.");
+      }
+    } catch {
+      showNotification("Error connecting to server to record incident.");
+    } finally {
+      setIsSubmittingIncident(false);
     }
   };
 
@@ -125,6 +180,16 @@ export default function ShiftSupervisorDashboard() {
       });
       if (res.ok) {
         showNotification(`Officer signed off duty for shift #${id}.`);
+        if (typeof window !== "undefined") {
+          try {
+            if ("BroadcastChannel" in window) {
+              const bc = new BroadcastChannel("campusguard_roster_channel");
+              bc.postMessage({ type: "ROSTER_UPDATED", timestamp: Date.now() });
+              bc.close();
+            }
+            localStorage.setItem("campusguard_roster_last_update", Date.now().toString());
+          } catch {}
+        }
         loadData();
       }
     } catch {
@@ -378,6 +443,14 @@ export default function ShiftSupervisorDashboard() {
             </div>
 
             <div className="flex items-center gap-2.5">
+              <button
+                type="button"
+                onClick={() => setIsIncidentModalOpen(true)}
+                className="px-3.5 py-2 bg-red-600 hover:bg-red-700 text-white font-bold text-xs rounded-lg flex items-center gap-1.5 shadow-xs transition cursor-pointer"
+              >
+                <AlertTriangle className="w-3.5 h-3.5" />
+                <span>Log Incident</span>
+              </button>
               <button
                 type="button"
                 onClick={handleExportCSV}
@@ -661,6 +734,93 @@ export default function ShiftSupervisorDashboard() {
               </table>
             </div>
           </div>
+
+          {/* LOG INCIDENT MODAL */}
+          {isIncidentModalOpen && (
+            <div className="fixed inset-0 z-50 bg-black/40 backdrop-blur-xs flex items-center justify-center p-4">
+              <div className="bg-white rounded-2xl max-w-md w-full p-6 shadow-xl space-y-4">
+                <div className="flex items-center justify-between border-b pb-3">
+                  <h3 className="font-extrabold text-base text-slate-900 flex items-center gap-2">
+                    <AlertTriangle className="w-4 h-4 text-red-600" />
+                    <span>Log Operational Incident</span>
+                  </h3>
+                  <button onClick={() => setIsIncidentModalOpen(false)} className="text-slate-400 hover:text-slate-700">
+                    <X className="w-5 h-5" />
+                  </button>
+                </div>
+
+                <form onSubmit={handleCreateIncident} className="space-y-3 text-xs">
+                  <div>
+                    <label className="font-bold text-slate-700 block mb-1">Incident Title</label>
+                    <input
+                      type="text"
+                      required
+                      placeholder="e.g. Unauthorized Vehicle in West Loading Dock"
+                      value={incTitle}
+                      onChange={(e) => setIncTitle(e.target.value)}
+                      className="w-full p-2 border border-slate-300 rounded-lg text-slate-900"
+                    />
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-2">
+                    <div>
+                      <label className="font-bold text-slate-700 block mb-1">Severity</label>
+                      <select
+                        value={incSeverity}
+                        onChange={(e) => setIncSeverity(e.target.value)}
+                        className="w-full p-2 border border-slate-300 rounded-lg text-slate-900"
+                      >
+                        <option value="CRITICAL">Critical</option>
+                        <option value="HIGH">High</option>
+                        <option value="MEDIUM">Medium</option>
+                        <option value="LOW">Low</option>
+                      </select>
+                    </div>
+                    <div>
+                      <label className="font-bold text-slate-700 block mb-1">Location / Zone</label>
+                      <input
+                        type="text"
+                        required
+                        value={incLocation}
+                        onChange={(e) => setIncLocation(e.target.value)}
+                        className="w-full p-2 border border-slate-300 rounded-lg text-slate-900"
+                      />
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="font-bold text-slate-700 block mb-1">Field Narrative / Details</label>
+                    <textarea
+                      rows={3}
+                      required
+                      placeholder="Document initial officer observations, vehicle tags, security response status..."
+                      value={incDescription}
+                      onChange={(e) => setIncDescription(e.target.value)}
+                      className="w-full p-2 border border-slate-300 rounded-lg text-slate-900 resize-none"
+                    />
+                  </div>
+
+                  <div className="flex justify-end gap-2 pt-3 border-t">
+                    <button
+                      type="button"
+                      onClick={() => setIsIncidentModalOpen(false)}
+                      className="px-3.5 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold rounded-lg"
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      type="submit"
+                      disabled={isSubmittingIncident}
+                      className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white font-bold rounded-lg flex items-center gap-1.5"
+                    >
+                      {isSubmittingIncident ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <AlertTriangle className="w-3.5 h-3.5" />}
+                      <span>Save &amp; Report Incident</span>
+                    </button>
+                  </div>
+                </form>
+              </div>
+            </div>
+          )}
         </main>
       </div>
     </div>

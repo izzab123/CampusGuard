@@ -29,8 +29,17 @@ public class AuditLogController {
         if (log.getTimestamp() == null) {
             log.setTimestamp(LocalDateTime.now());
         }
-        if (log.getSeverity() == null) {
+        if (log.getSeverity() == null || log.getSeverity().isBlank()) {
             log.setSeverity("INFO");
+        }
+        if (log.getActor() == null || log.getActor().isBlank()) {
+            log.setActor(log.getActorEmail() != null && !log.getActorEmail().isBlank() ? log.getActorEmail() : "Supervisor");
+        }
+        if (log.getAction() == null || log.getAction().isBlank()) {
+            log.setAction("OPERATIONAL_EVENT");
+        }
+        if (log.getDetails() == null) {
+            log.setDetails("");
         }
         AuditLog saved = auditLogRepo.save(log);
         return new ResponseEntity<>(saved, HttpStatus.CREATED);

@@ -2,6 +2,8 @@ package com.campusguard.service;
 
 import com.campusguard.model.DutyRoster;
 import com.campusguard.repository.DutyRosterRepository;
+import com.campusguard.repository.UserRepository;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -14,9 +16,16 @@ import java.util.*;
 public class DutyRosterService {
 
     private final DutyRosterRepository dutyRosterRepo;
+    private final UserRepository userRepo;
+
+    @Autowired
+    public DutyRosterService(DutyRosterRepository dutyRosterRepo, @Autowired(required = false) UserRepository userRepo) {
+        this.dutyRosterRepo = dutyRosterRepo;
+        this.userRepo = userRepo;
+    }
 
     public DutyRosterService(DutyRosterRepository dutyRosterRepo) {
-        this.dutyRosterRepo = dutyRosterRepo;
+        this(dutyRosterRepo, null);
     }
 
     public DutyRoster createShiftSchedule(DutyRoster roster, String supervisorNameHeader, String supervisorBadgeHeader) {
@@ -46,6 +55,19 @@ public class DutyRosterService {
         }
         if (roster.getPostLocation() == null || roster.getPostLocation().isBlank()) {
             throw new IllegalArgumentException("Post location is required to schedule a shift");
+        }
+
+        // Auto-resolve guardEmail from user repository if missing
+        if ((roster.getGuardEmail() == null || roster.getGuardEmail().isBlank()) && userRepo != null) {
+            if (roster.getGuardBadgeNumber() != null && !roster.getGuardBadgeNumber().isBlank()) {
+                userRepo.findByBadgeNumber(roster.getGuardBadgeNumber().trim())
+                        .ifPresent(u -> roster.setGuardEmail(u.getEmail()));
+            }
+            if ((roster.getGuardEmail() == null || roster.getGuardEmail().isBlank()) &&
+                roster.getGuardName() != null && !roster.getGuardName().isBlank()) {
+                userRepo.findByFullNameIgnoreCase(roster.getGuardName().trim())
+                        .ifPresent(u -> roster.setGuardEmail(u.getEmail()));
+            }
         }
 
         // Set date default if absent
@@ -268,5 +290,117 @@ public class DutyRosterService {
                 roster.setEndTime("14:00");
                 break;
         }
+    }
+
+    @Transactional(readOnly = true)
+    public boolean isRosterAssignedToGuard(DutyRoster r, String email, String badge, String name) {
+        if (r == null) return false;
+
+        if (email != null && !email.isBlank()) {
+            if (email.trim().equalsIgnoreCase(r.getGuardEmail())) {
+                return true;
+            }
+        }
+
+        if (badge != null && !badge.isBlank()) {
+            String b = badge.trim();
+            if (b.equalsIgnoreCase(r.getGuardBadgeNumber()) || b.equalsIgnoreCase(r.getRelieverBadgeNumber())) {
+                return true;
+            }
+            String bDigits = b.replaceAll("\\D+", "");
+            if (!bDigits.isEmpty()) {
+                String rGuardDigits = r.getGuardBadgeNumber() != null ? r.getGuardBadgeNumber().replaceAll("\\D+", "") : "";
+                String rRelieverDigits = r.getRelieverBadgeNumber() != null ? r.getRelieverBadgeNumber().replaceAll("\\D+", "") : "";
+                if (bDigits.equals(rGuardDigits) || bDigits.equals(rRelieverDigits)) {
+                    return true;
+                }
+            }
+        }
+
+        if (name != null && !name.isBlank()) {
+            String n = name.trim().toLowerCase();
+            String rGuard = r.getGuardName() != null ? r.getGuardName().trim().toLowerCase() : "";
+            String rReliever = r.getRelieverName() != null ? r.getRelieverName().trim().toLowerCase() : "";
+            if (rGuard.equals(n) || rReliever.equals(n)) {
+                return true;
+            }
+            if (!n.isEmpty() && (rGuard.contains(n) || n.contains(rGuard)) && rGuard.length() > 3) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    @Transactional(readOnly = true)
+    public boolean isDutyAssignedToGuard(Long dutyId, String email, String badge, String name) {
+        return dutyRosterRepo.findById(dutyId)
+                .map(r -> isRosterAssignedToGuard(r, email, badge, name))
+                .orElse(false);
+    }
+
+    @Transactional(readOnly = true)
+    public Map<String, Object> getGuardDutyRoster(String guardEmail, String guardBadge, String guardName) {
+        LocalDate today = LocalDate.now();
+
+        // Enforce guard matching: retrieve duty rosters and filter strictly to this guard
+        List<DutyRoster> allShifts = dutyRosterRepo.findAll();
+        List<DutyRoster> guardShifts = allShifts.stream()
+                .filter(r -> isRosterAssignedToGuard(r, guardEmail, guardBadge, guardName))
+                .toList();
+
+        // Today's duties (sorted by startTime ascending)
+        List<DutyRoster> todayDuties = guardShifts.stream()
+                .filter(r -> r.getDutyDate() != null && r.getDutyDate().isEqual(today))
+                .sorted(Comparator.comparing(r -> r.getStartTime() != null ? r.getStartTime() : "00:00"))
+                .toList();
+
+        // Upcoming duties (strictly after today, sorted chronologically ascending: date ASC, then startTime ASC)
+        List<DutyRoster> upcomingDuties = guardShifts.stream()
+                .filter(r -> r.getDutyDate() != null && r.getDutyDate().isAfter(today))
+                .sorted(Comparator.comparing(DutyRoster::getDutyDate)
+                        .thenComparing(r -> r.getStartTime() != null ? r.getStartTime() : "00:00"))
+                .toList();
+
+        // Past duties (before today, sorted most recent first)
+        List<DutyRoster> pastDuties = guardShifts.stream()
+                .filter(r -> r.getDutyDate() != null && r.getDutyDate().isBefore(today))
+                .sorted(Comparator.comparing(DutyRoster::getDutyDate).reversed()
+                        .thenComparing(r -> r.getStartTime() != null ? r.getStartTime() : "00:00"))
+                .toList();
+
+        // Combined all duties with TODAY'S DUTY AT THE TOP!
+        List<DutyRoster> allDutiesWithTodayAtTop = new ArrayList<>();
+        allDutiesWithTodayAtTop.addAll(todayDuties);
+        allDutiesWithTodayAtTop.addAll(upcomingDuties);
+        allDutiesWithTodayAtTop.addAll(pastDuties);
+
+        DutyRoster todayDuty = todayDuties.isEmpty() ? null : todayDuties.get(0);
+        DutyRoster nextUpcomingDuty = upcomingDuties.isEmpty() ? null : upcomingDuties.get(0);
+
+        Map<String, Object> result = new LinkedHashMap<>();
+        result.put("guardEmail", guardEmail);
+        result.put("guardBadgeNumber", guardBadge);
+        result.put("guardName", guardName);
+        result.put("hasTodayDuty", !todayDuties.isEmpty());
+        result.put("todayDuty", todayDuty);
+        result.put("todayDuties", todayDuties);
+        result.put("upcomingDuties", upcomingDuties);
+        result.put("pastDuties", pastDuties);
+        result.put("allDuties", allDutiesWithTodayAtTop);
+        result.put("totalUpcoming", upcomingDuties.size());
+        result.put("totalAssigned", guardShifts.size());
+        result.put("nextUpcomingDuty", nextUpcomingDuty);
+        result.put("serverTime", LocalDateTime.now());
+
+        return result;
+    }
+
+    @Transactional(readOnly = true)
+    public List<DutyRoster> getGuardDutyRosterList(String guardEmail, String guardBadge, String guardName) {
+        Map<String, Object> map = getGuardDutyRoster(guardEmail, guardBadge, guardName);
+        @SuppressWarnings("unchecked")
+        List<DutyRoster> list = (List<DutyRoster>) map.get("allDuties");
+        return list;
     }
 }

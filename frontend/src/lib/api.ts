@@ -32,6 +32,15 @@ export const API_ENDPOINTS = {
     checkout: (id: number | string) => `${getApiUrl()}/api/shifts/${id}/checkout`,
     escalate: (id: number | string) => `${getApiUrl()}/api/shifts/${id}/escalate`,
   },
+  dutyRoster: {
+    base: `${getApiUrl()}/api/duty-roster`,
+    list: `${getApiUrl()}/api/duty-roster`,
+    myRoster: `${getApiUrl()}/api/duty-roster/my-roster`,
+    summary: `${getApiUrl()}/api/duty-roster/summary`,
+    byId: (id: number | string) => `${getApiUrl()}/api/duty-roster/${id}`,
+    reliever: (id: number | string) => `${getApiUrl()}/api/duty-roster/${id}/reliever`,
+    status: (id: number | string) => `${getApiUrl()}/api/duty-roster/${id}/status`,
+  },
   parking: {
     passes: `${getApiUrl()}/api/parking/passes`,
     my: (owner?: string) => `${getApiUrl()}/api/parking/passes/my${owner ? `?owner=${encodeURIComponent(owner)}` : ""}`,

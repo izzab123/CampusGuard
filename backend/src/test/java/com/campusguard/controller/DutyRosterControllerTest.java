@@ -209,4 +209,141 @@ public class DutyRosterControllerTest {
                 .andExpect(jsonPath("$.relieversAssignedCount").value(1))
                 .andExpect(jsonPath("$.uniquePostsCovered").value(1));
     }
+
+    @Test
+    void guardCanViewOwnUpcomingRosterWithTodayAtTop() throws Exception {
+        LocalDate today = LocalDate.now();
+        LocalDate tomorrow = today.plusDays(1);
+        LocalDate nextWeek = today.plusDays(5);
+
+        // Duty for Guard Marcus Vance today
+        DutyRoster todayDuty = new DutyRoster("Supervisor Elena", "Officer Marcus Vance", "Shield #4082", "Main North Gate & Barrier 04", today, "MORNING", "08:00", "16:00");
+        todayDuty.setGuardEmail("guard@campusguard.edu");
+        todayDuty.setStatus("ACTIVE");
+        dutyRosterRepository.save(todayDuty);
+
+        // Upcoming duty for Marcus Vance tomorrow
+        DutyRoster upcomingDuty1 = new DutyRoster("Supervisor Elena", "Officer Marcus Vance", "Shield #4082", "West Quad Gate 02", tomorrow, "MORNING", "08:00", "16:00");
+        upcomingDuty1.setGuardEmail("guard@campusguard.edu");
+        dutyRosterRepository.save(upcomingDuty1);
+
+        // Another upcoming duty for Marcus Vance next week
+        DutyRoster upcomingDuty2 = new DutyRoster("Supervisor Elena", "Officer Marcus Vance", "Shield #4082", "Library Gate", nextWeek, "NIGHT", "00:00", "08:00");
+        upcomingDuty2.setGuardEmail("guard@campusguard.edu");
+        dutyRosterRepository.save(upcomingDuty2);
+
+        // Duty for another guard (David Chen)
+        DutyRoster otherGuardDuty = new DutyRoster("Supervisor Elena", "Officer David Chen", "Shield #3910", "South Gate", tomorrow, "EVENING", "16:00", "00:00");
+        otherGuardDuty.setGuardEmail("d.chen@campusguard.edu");
+        dutyRosterRepository.save(otherGuardDuty);
+
+        // Call /api/duty-roster/my-roster
+        mockMvc.perform(get("/api/duty-roster/my-roster")
+                        .header("X-User-Role", "Security Guard")
+                        .header("X-User-Email", "guard@campusguard.edu")
+                        .header("X-Guard-Badge", "Shield #4082")
+                        .header("X-Guard-Name", "Officer Marcus Vance"))
+                .andExpect(status().isOk())
+                .andExpect(header().string("Cache-Control", containsString("no-cache")))
+                .andExpect(jsonPath("$.hasTodayDuty").value(true))
+                .andExpect(jsonPath("$.todayDuty.postLocation").value("Main North Gate & Barrier 04"))
+                .andExpect(jsonPath("$.todayDuty.startTime").value("08:00"))
+                .andExpect(jsonPath("$.todayDuty.endTime").value("16:00"))
+                .andExpect(jsonPath("$.upcomingDuties", hasSize(2)))
+                .andExpect(jsonPath("$.upcomingDuties[0].postLocation").value("West Quad Gate 02"))
+                .andExpect(jsonPath("$.upcomingDuties[0].dutyDate").value(tomorrow.toString()))
+                .andExpect(jsonPath("$.upcomingDuties[0].startTime").value("08:00"))
+                .andExpect(jsonPath("$.upcomingDuties[1].postLocation").value("Library Gate"))
+                .andExpect(jsonPath("$.allDuties", hasSize(3)))
+                .andExpect(jsonPath("$.allDuties[0].postLocation").value("Main North Gate & Barrier 04")); // Today's duty at the top!
+    }
+
+    @Test
+    void guardsCanAccessOnlyTheirOwnRosters() throws Exception {
+        LocalDate today = LocalDate.now();
+
+        DutyRoster vanceShift = new DutyRoster("Supervisor Elena", "Officer Marcus Vance", "Shield #4082", "North Gate", today, "MORNING", "08:00", "16:00");
+        vanceShift.setGuardEmail("guard@campusguard.edu");
+        dutyRosterRepository.save(vanceShift);
+
+        DutyRoster chenShift = new DutyRoster("Supervisor Elena", "Officer David Chen", "Shield #3910", "South Gate", today, "EVENING", "16:00", "00:00");
+        chenShift.setGuardEmail("d.chen@campusguard.edu");
+        chenShift = dutyRosterRepository.save(chenShift);
+
+        // Guard Marcus Vance calling /api/duty-roster: only gets Marcus Vance's shifts
+        mockMvc.perform(get("/api/duty-roster")
+                        .header("X-User-Role", "Security Guard")
+                        .header("X-User-Email", "guard@campusguard.edu")
+                        .header("X-Guard-Badge", "Shield #4082")
+                        .header("X-Guard-Name", "Officer Marcus Vance"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$", hasSize(1)))
+                .andExpect(jsonPath("$[0].guardName").value("Officer Marcus Vance"))
+                .andExpect(jsonPath("$[0].postLocation").value("North Gate"));
+
+        // Guard Marcus Vance trying to view David Chen's shift by ID: receives 403 FORBIDDEN
+        mockMvc.perform(get("/api/duty-roster/" + chenShift.getId())
+                        .header("X-User-Role", "Security Guard")
+                        .header("X-User-Email", "guard@campusguard.edu")
+                        .header("X-Guard-Badge", "Shield #4082")
+                        .header("X-Guard-Name", "Officer Marcus Vance"))
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.error").value(containsString("Access denied")));
+
+        // Guard cannot schedule shift: receives 403 FORBIDDEN
+        String newShiftJson = """
+                {
+                    "guardName": "Officer Marcus Vance",
+                    "guardBadgeNumber": "Shield #4082",
+                    "postLocation": "Unauthorized Post",
+                    "shiftType": "MORNING"
+                }
+                """;
+        mockMvc.perform(post("/api/duty-roster")
+                        .header("X-User-Role", "Security Guard")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(newShiftJson))
+                .andExpect(status().isForbidden());
+    }
+
+    @Test
+    void supervisorChangesAreReflectedInGuardRosterWithoutRelogin() throws Exception {
+        LocalDate today = LocalDate.now();
+
+        DutyRoster shift = new DutyRoster("Supervisor Elena", "Officer Marcus Vance", "Shield #4082", "North Gate 01", today, "MORNING", "08:00", "16:00");
+        shift.setGuardEmail("guard@campusguard.edu");
+        shift.setStatus("SCHEDULED");
+        DutyRoster saved = dutyRosterRepository.save(shift);
+
+        // Guard fetches initially
+        mockMvc.perform(get("/api/duty-roster/my-roster")
+                        .header("X-User-Role", "Security Guard")
+                        .header("X-User-Email", "guard@campusguard.edu")
+                        .header("X-Guard-Badge", "Shield #4082"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.todayDuty.postLocation").value("North Gate 01"))
+                .andExpect(jsonPath("$.todayDuty.status").value("SCHEDULED"));
+
+        // Supervisor updates gate and status to ACTIVE
+        String updatePayload = """
+                {
+                    "postLocation": "Emergency East Perimeter Gate",
+                    "status": "ACTIVE"
+                }
+                """;
+        mockMvc.perform(put("/api/duty-roster/" + saved.getId())
+                        .header("X-Supervisor-Name", "Supervisor Elena")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(updatePayload))
+                .andExpect(status().isOk());
+
+        // Guard requests their roster again (simulating automatic polling without re-login)
+        mockMvc.perform(get("/api/duty-roster/my-roster")
+                        .header("X-User-Role", "Security Guard")
+                        .header("X-User-Email", "guard@campusguard.edu")
+                        .header("X-Guard-Badge", "Shield #4082"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.todayDuty.postLocation").value("Emergency East Perimeter Gate"))
+                .andExpect(jsonPath("$.todayDuty.status").value("ACTIVE"));
+    }
 }

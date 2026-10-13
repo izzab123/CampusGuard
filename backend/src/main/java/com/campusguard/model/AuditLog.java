@@ -56,6 +56,13 @@ public class AuditLog {
     public String getActor() { return actor; }
     public void setActor(String actor) { this.actor = actor; }
 
+    public String getActorEmail() { return actor; }
+    public void setActorEmail(String actorEmail) { 
+        if (this.actor == null || this.actor.isBlank()) {
+            this.actor = actorEmail;
+        }
+    }
+
     public String getRole() { return role; }
     public void setRole(String role) { this.role = role; }
 
