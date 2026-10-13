@@ -45,6 +45,11 @@ interface DutyRosterItem {
   status: string;
   priority?: string;
   notes?: string;
+  isReassigned?: boolean;
+  reassigned?: boolean;
+  originalGuardName?: string;
+  originalGuardBadgeNumber?: string;
+  reassignmentReason?: string;
   createdAt?: string;
   updatedAt?: string;
 }
@@ -544,6 +549,12 @@ export default function ViewMyDutyPage() {
                           Priority: {todayDuty.priority}
                         </span>
                       )}
+                      {(todayDuty.reassigned || todayDuty.isReassigned || todayDuty.originalGuardName) && (
+                        <span className="px-2.5 py-0.5 rounded-full text-[11px] font-extrabold bg-blue-100 text-blue-900 border border-blue-300 flex items-center gap-1 shadow-2xs">
+                          <ArrowRightLeft className="w-3 h-3 text-blue-700" />
+                          <span>Covering for Officer {todayDuty.originalGuardName || "Absent Guard"}</span>
+                        </span>
+                      )}
                     </div>
 
                     <div>
@@ -806,6 +817,13 @@ export default function ViewMyDutyPage() {
                         >
                           ● {duty.status}
                         </span>
+
+                        {(duty.reassigned || duty.isReassigned || duty.originalGuardName) && (
+                          <span className="px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-blue-100 text-blue-900 border border-blue-300 flex items-center gap-1 shadow-2xs">
+                            <ArrowRightLeft className="w-3 h-3 text-blue-700" />
+                            <span>Replacement for {duty.originalGuardName || "Absent Guard"}</span>
+                          </span>
+                        )}
                       </div>
 
                       <div className="flex items-center gap-2 text-xs font-bold text-slate-800">

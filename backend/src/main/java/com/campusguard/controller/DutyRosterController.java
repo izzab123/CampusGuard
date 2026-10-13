@@ -1,5 +1,7 @@
 package com.campusguard.controller;
 
+import com.campusguard.dto.DutyReassignmentRequest;
+import com.campusguard.model.DutyReassignmentHistory;
 import com.campusguard.model.DutyRoster;
 import com.campusguard.service.DutyRosterService;
 import jakarta.servlet.http.HttpServletRequest;
@@ -342,5 +344,63 @@ public class DutyRosterController {
                 .header(HttpHeaders.PRAGMA, "no-cache")
                 .header(HttpHeaders.EXPIRES, "0")
                 .body(summary);
+    }
+
+    /**
+     * Reassign an absent guard's shift to an available replacement guard.
+     * Records roster history containing both original and replacement assignments,
+     * reason for reassignment, notifies replacement guard, and ensures absent guard
+     * is excused (does not count as a no-show).
+     */
+    @PostMapping("/{id}/reassign")
+    public ResponseEntity<?> reassignShift(
+            @PathVariable Long id,
+            @RequestBody DutyReassignmentRequest req,
+            @RequestHeader(value = "X-Supervisor-Name", required = false) String supervisorNameHeader,
+            @RequestHeader(value = "X-Supervisor-Badge", required = false) String supervisorBadgeHeader,
+            @RequestHeader(value = "X-User-Role", required = false) String userRoleHeader,
+            HttpServletRequest request
+    ) {
+        String callerRole = resolveCallerRole(request, userRoleHeader);
+        if ("Security Guard".equalsIgnoreCase(callerRole)) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN)
+                    .body(Map.of("error", "Access denied: Security guards cannot reassign duty rosters"));
+        }
+
+        try {
+            DutyReassignmentHistory history = dutyRosterService.reassignDutyShift(
+                    id, req, supervisorNameHeader, supervisorBadgeHeader);
+            return ResponseEntity.ok()
+                    .header(HttpHeaders.CACHE_CONTROL, "no-cache, no-store, must-revalidate")
+                    .body(history);
+        } catch (NoSuchElementException ex) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                    .body(Map.of("error", ex.getMessage()));
+        } catch (IllegalArgumentException ex) {
+            return ResponseEntity.badRequest()
+                    .body(Map.of("error", ex.getMessage()));
+        }
+    }
+
+    /**
+     * Get full reassignment history audit trail across all roster duties.
+     */
+    @GetMapping("/reassignments")
+    public ResponseEntity<List<DutyReassignmentHistory>> getAllReassignments() {
+        List<DutyReassignmentHistory> list = dutyRosterService.getAllReassignmentHistory();
+        return ResponseEntity.ok()
+                .header(HttpHeaders.CACHE_CONTROL, "no-cache, no-store, must-revalidate")
+                .body(list);
+    }
+
+    /**
+     * Get reassignment history for a specific roster entry.
+     */
+    @GetMapping("/{id}/reassignments")
+    public ResponseEntity<List<DutyReassignmentHistory>> getReassignmentsByRoster(@PathVariable Long id) {
+        List<DutyReassignmentHistory> list = dutyRosterService.getReassignmentHistoryForRoster(id);
+        return ResponseEntity.ok()
+                .header(HttpHeaders.CACHE_CONTROL, "no-cache, no-store, must-revalidate")
+                .body(list);
     }
 }
