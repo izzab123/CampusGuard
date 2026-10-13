@@ -16,6 +16,8 @@ public interface DutyRosterRepository extends JpaRepository<DutyRoster, Long> {
 
     List<DutyRoster> findByDutyDateOrderByStartTimeAsc(LocalDate dutyDate);
 
+    List<DutyRoster> findByDutyDate(LocalDate dutyDate);
+
     List<DutyRoster> findByStatusIgnoreCase(String status);
 
     List<DutyRoster> findByPostLocationIgnoreCase(String postLocation);

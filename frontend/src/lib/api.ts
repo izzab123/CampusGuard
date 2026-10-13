@@ -61,6 +61,14 @@ export const API_ENDPOINTS = {
     read: (id: number | string) => `${getApiUrl()}/api/notifications/${id}/read`,
     markRead: (id: number | string) => `${getApiUrl()}/api/notifications/${id}/read`,
   },
+  attendance: {
+    config: `${getApiUrl()}/api/attendance/config`,
+    noShows: `${getApiUrl()}/api/attendance/no-shows`,
+    records: `${getApiUrl()}/api/attendance/records`,
+    evaluate: `${getApiUrl()}/api/attendance/evaluate`,
+    checkIn: (id: number | string) => `${getApiUrl()}/api/attendance/check-in/${id}`,
+    approveLeave: (id: number | string) => `${getApiUrl()}/api/attendance/approve-leave/${id}`,
+  },
   features: `${getApiUrl()}/api/features`,
   status: `${getApiUrl()}/api/status`,
 };
