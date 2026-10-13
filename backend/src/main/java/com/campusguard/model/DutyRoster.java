@@ -79,6 +79,15 @@ public class DutyRoster {
     private String absentGuardAttendanceStatus; // "EXCUSED_ABSENCE"
     private boolean countsAsNoShow = false;
 
+    // Attendance & No-Show Tracking
+    private boolean checkedIn = false;
+    private LocalDateTime checkInTime;
+    private boolean leaveApproved = false;
+    private String leaveReason;
+    private String attendanceStatus = "SCHEDULED"; // SCHEDULED, PRESENT, NO_SHOW, EXCUSED_ABSENCE, ON_LEAVE
+    private LocalDateTime noShowFlaggedAt;
+    private String noShowReason;
+
     public DutyRoster() {
         this.status = "SCHEDULED";
         this.priority = "NORMAL";
@@ -297,4 +306,91 @@ public class DutyRoster {
 
     public boolean isCountsAsNoShow() { return countsAsNoShow; }
     public void setCountsAsNoShow(boolean countsAsNoShow) { this.countsAsNoShow = countsAsNoShow; }
+
+    public boolean isCheckedIn() { return checkedIn; }
+    public void setCheckedIn(boolean checkedIn) { this.checkedIn = checkedIn; }
+
+    public LocalDateTime getCheckInTime() { return checkInTime; }
+    public void setCheckInTime(LocalDateTime checkInTime) { this.checkInTime = checkInTime; }
+
+    public boolean isLeaveApproved() { return leaveApproved; }
+    public void setLeaveApproved(boolean leaveApproved) { this.leaveApproved = leaveApproved; }
+
+    public String getLeaveReason() { return leaveReason; }
+    public void setLeaveReason(String leaveReason) { this.leaveReason = leaveReason; }
+
+    public String getAttendanceStatus() { return attendanceStatus; }
+    public void setAttendanceStatus(String attendanceStatus) { this.attendanceStatus = attendanceStatus; }
+
+    public LocalDateTime getNoShowFlaggedAt() { return noShowFlaggedAt; }
+    public void setNoShowFlaggedAt(LocalDateTime noShowFlaggedAt) { this.noShowFlaggedAt = noShowFlaggedAt; }
+
+    public String getNoShowReason() { return noShowReason; }
+    public void setNoShowReason(String noShowReason) { this.noShowReason = noShowReason; }
+
+    public LocalDateTime getEffectiveShiftStart() {
+        if (shiftStart != null) {
+            return shiftStart;
+        }
+        if (dutyDate != null && startTime != null && !startTime.isBlank()) {
+            try {
+                String clean = startTime.trim();
+                if (clean.length() == 5) {
+                    return LocalDateTime.of(dutyDate, LocalTime.parse(clean));
+                }
+            } catch (Exception ignored) {}
+        }
+        return null;
+    }
+
+    /**
+     * Determines whether this duty roster shift is eligible to be marked as No-Show.
+     * Rules:
+     * - Never flag guards who have checked in.
+     * - Never flag guards whose duties have been reassigned.
+     * - Never flag guards whose leave has been approved.
+     * - Eligible only if effective shift start exists and evaluation time is >= (shiftStart + gracePeriodMinutes).
+     */
+    public boolean isEligibleForNoShow(LocalDateTime evaluationTime, int gracePeriodMinutes) {
+        if (evaluationTime == null) {
+            evaluationTime = LocalDateTime.now();
+        }
+
+        // If already marked as NO_SHOW, do not re-flag
+        if ("NO_SHOW".equalsIgnoreCase(this.status) || "NO_SHOW".equalsIgnoreCase(this.attendanceStatus)) {
+            return false;
+        }
+
+        // RULE 1: Never flag guards who have checked in
+        if (this.checkedIn || this.checkInTime != null ||
+            "CHECKED_IN".equalsIgnoreCase(this.status) ||
+            "ACTIVE".equalsIgnoreCase(this.status) ||
+            "COMPLETED".equalsIgnoreCase(this.status) ||
+            "PRESENT".equalsIgnoreCase(this.attendanceStatus)) {
+            return false;
+        }
+
+        // RULE 2: Never flag guards whose duties have been reassigned
+        if (this.isReassigned || this.reassignedAt != null ||
+            "EXCUSED_ABSENCE".equalsIgnoreCase(this.absentGuardAttendanceStatus) ||
+            (!this.countsAsNoShow && this.reassignmentReason != null && !this.reassignmentReason.isBlank())) {
+            return false;
+        }
+
+        // RULE 3: Never flag guards whose leave has been approved
+        if (this.leaveApproved ||
+            "ON_LEAVE".equalsIgnoreCase(this.attendanceStatus) ||
+            "APPROVED_LEAVE".equalsIgnoreCase(this.status)) {
+            return false;
+        }
+
+        // Must have an effective shift start time
+        LocalDateTime start = getEffectiveShiftStart();
+        if (start == null) {
+            return false;
+        }
+
+        LocalDateTime cutoffTime = start.plusMinutes(gracePeriodMinutes);
+        return !evaluationTime.isBefore(cutoffTime);
+    }
 }

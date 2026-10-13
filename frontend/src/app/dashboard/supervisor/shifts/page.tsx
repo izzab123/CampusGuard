@@ -357,6 +357,12 @@ export default function SupervisorShiftsPage() {
                 Shifts
               </Link>
               <Link
+                href="/dashboard/supervisor/attendance"
+                className="py-5 relative transition cursor-pointer text-slate-600 hover:text-slate-900"
+              >
+                Attendance
+              </Link>
+              <Link
                 href="/dashboard/supervisor/escalations"
                 className="py-5 relative transition cursor-pointer text-slate-600 hover:text-slate-900"
               >
@@ -444,6 +450,12 @@ export default function SupervisorShiftsPage() {
                 className="w-full flex items-center px-3.5 py-2.5 rounded-lg text-xs font-bold bg-[#1a44c2] text-white shadow-xs"
               >
                 Shifts
+              </Link>
+              <Link
+                href="/dashboard/supervisor/attendance"
+                className="w-full flex items-center px-3.5 py-2.5 rounded-lg text-xs font-semibold text-slate-600 hover:bg-slate-100 hover:text-slate-900 transition"
+              >
+                Attendance
               </Link>
               <Link
                 href="/dashboard/supervisor/escalations"

@@ -291,6 +291,12 @@ export default function ShiftSupervisorDashboard() {
                 Shifts
               </Link>
               <Link
+                href="/dashboard/supervisor/attendance"
+                className="py-5 relative transition cursor-pointer hover:text-slate-900"
+              >
+                Attendance
+              </Link>
+              <Link
                 href="/dashboard/supervisor/escalations"
                 className="py-5 relative transition cursor-pointer hover:text-slate-900"
               >
@@ -374,6 +380,7 @@ export default function ShiftSupervisorDashboard() {
               {[
                 { name: "Dashboard", href: "/dashboard/supervisor", icon: ShieldCheck, active: true },
                 { name: "Shifts", href: "/dashboard/supervisor/shifts", icon: Calendar },
+                { name: "Attendance", href: "/dashboard/supervisor/attendance", icon: UserCheck },
                 { name: "Escalations", href: "/dashboard/supervisor/escalations", icon: AlertTriangle },
                 { name: "Logbook", href: "/dashboard/supervisor/logbook", icon: Layers },
                 { name: "Notifications", href: "/dashboard/supervisor/notifications", icon: Bell },
