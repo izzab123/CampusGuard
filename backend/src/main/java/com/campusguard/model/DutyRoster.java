@@ -240,30 +240,6 @@ public class DutyRoster {
     public void setUpdatedAt(LocalDateTime updatedAt) { this.updatedAt = updatedAt; }
 
     // Backward compatibility and lenient property aliases
-    @JsonProperty("officerName")
-    public void setOfficerName(String officerName) {
-        if (this.guardName == null || this.guardName.isBlank()) {
-            this.guardName = officerName;
-        }
-    }
-
-    @JsonProperty("officerName")
-    public String getOfficerName() {
-        return this.guardName;
-    }
-
-    @JsonProperty("badgeNumber")
-    public void setBadgeNumber(String badgeNumber) {
-        if (this.guardBadgeNumber == null || this.guardBadgeNumber.isBlank()) {
-            this.guardBadgeNumber = badgeNumber;
-        }
-    }
-
-    @JsonProperty("badgeNumber")
-    public String getBadgeNumber() {
-        return this.guardBadgeNumber;
-    }
-
     @JsonProperty("shiftDate")
     public void setShiftDate(LocalDate shiftDate) {
         if (this.dutyDate == null) {
