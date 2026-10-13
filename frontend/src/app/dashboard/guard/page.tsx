@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
 import {
   ShieldCheck,
@@ -17,7 +17,12 @@ import {
   Video,
   RefreshCw,
   Fingerprint,
-  UserCheck
+  UserCheck,
+  Calendar,
+  CalendarDays,
+  MapPin,
+  ChevronRight,
+  RotateCcw
 } from "lucide-react";
 import { performLogout, getStoredAuthUser, AuthUser } from "@/lib/auth";
 import { API_ENDPOINTS } from "@/lib/api";
@@ -32,15 +37,34 @@ interface IncidentItem {
   createdAt: string;
 }
 
+interface DutyRosterShift {
+  id: number;
+  dutyDate: string;
+  startTime: string;
+  endTime: string;
+  postLocation: string;
+  shiftType: string;
+  guardName: string;
+  guardBadgeNumber: string;
+  supervisorName: string;
+  relieverName?: string;
+  status: string;
+  notes?: string;
+}
+
 export default function SecurityGuardDashboard() {
   const [user, setUser] = useState<AuthUser | null>(null);
   const [activeShift, setActiveShift] = useState<any>(null);
   const [incidents, setIncidents] = useState<IncidentItem[]>([]);
   const [vehiclePassesCount, setVehiclePassesCount] = useState<number>(0);
+  const [todayDuty, setTodayDuty] = useState<DutyRosterShift | null>(null);
+  const [upcomingDuties, setUpcomingDuties] = useState<DutyRosterShift[]>([]);
+  const [isLiveSyncing, setIsLiveSyncing] = useState<boolean>(false);
 
-  const fetchGuardTelemetry = async () => {
+  const fetchGuardTelemetry = useCallback(async () => {
+    const stored = getStoredAuthUser();
     try {
-      // 1. Shifts
+      // 1. Shifts Log
       const shiftsRes = await fetch(API_ENDPOINTS.shifts.base);
       if (shiftsRes.ok) {
         const shifts = await shiftsRes.json();
@@ -62,21 +86,78 @@ export default function SecurityGuardDashboard() {
         const parkData = await parkRes.json();
         setVehiclePassesCount(parkData.length);
       }
+
+      // 4. Guard Duty Roster (Today's duty at top + upcoming duties)
+      if (stored) {
+        const queryParams = new URLSearchParams();
+        if (stored.email) queryParams.set("email", stored.email);
+        if (stored.badgeNumber) queryParams.set("badgeNumber", stored.badgeNumber);
+        if (stored.fullName || stored.name)
+          queryParams.set("name", stored.fullName || stored.name || "");
+
+        const rosterRes = await fetch(
+          `${API_ENDPOINTS.dutyRoster.myRoster}?${queryParams.toString()}`,
+          {
+            headers: {
+              "X-User-Role": stored.role || "Security Guard",
+              "X-User-Email": stored.email || "",
+              "X-Guard-Badge": stored.badgeNumber || "",
+              "X-Guard-Name": stored.fullName || stored.name || "",
+              "Cache-Control": "no-cache",
+            },
+            cache: "no-store",
+          }
+        );
+
+        if (rosterRes.ok) {
+          const data = await rosterRes.json();
+          setTodayDuty(data.todayDuty || null);
+          setUpcomingDuties(data.upcomingDuties || []);
+        }
+      }
     } catch {}
-  };
+  }, []);
 
   useEffect(() => {
     setUser(getStoredAuthUser());
     fetchGuardTelemetry();
-  }, []);
 
-  const officerName = user?.fullName || "Officer Marcus Vance";
+    // Polling interval every 5s for live sync without re-login
+    const interval = setInterval(() => {
+      fetchGuardTelemetry();
+    }, 5000);
+
+    // Visibility / window focus listener
+    const onFocus = () => fetchGuardTelemetry();
+    window.addEventListener("focus", onFocus);
+    window.addEventListener("visibilitychange", onFocus);
+
+    // Cross-tab broadcast channel for instant supervisor sync
+    let bc: BroadcastChannel | null = null;
+    if (typeof window !== "undefined" && "BroadcastChannel" in window) {
+      bc = new BroadcastChannel("campusguard_roster_channel");
+      bc.onmessage = () => {
+        fetchGuardTelemetry();
+        setIsLiveSyncing(true);
+        setTimeout(() => setIsLiveSyncing(false), 3000);
+      };
+    }
+
+    return () => {
+      clearInterval(interval);
+      window.removeEventListener("focus", onFocus);
+      window.removeEventListener("visibilitychange", onFocus);
+      if (bc) bc.close();
+    };
+  }, [fetchGuardTelemetry]);
+
+  const officerName = user?.fullName || user?.name || "Officer Marcus Vance";
   const badgeNum = user?.badgeNumber || "Shield #4082";
 
   return (
     <div className="min-h-screen bg-[#f8fafc] text-slate-900 font-sans flex flex-col">
       {/* 1. TOP APP HEADER */}
-      <header className="bg-white border-b border-slate-200 sticky top-0 z-30">
+      <header className="bg-white border-b border-slate-200 sticky top-0 z-30 shadow-2xs">
         <div className="max-w-[1520px] mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
           <div className="flex items-center gap-6">
             <Link href="/" className="flex items-center gap-2.5">
@@ -99,6 +180,12 @@ export default function SecurityGuardDashboard() {
                 className="py-5 relative transition cursor-pointer text-blue-700 font-bold border-b-2 border-blue-700"
               >
                 Dashboard
+              </Link>
+              <Link
+                href="/dashboard/guard/roster"
+                className="py-5 relative transition cursor-pointer hover:text-slate-900"
+              >
+                Duty Roster
               </Link>
               <Link
                 href="/dashboard/guard/handoff"
@@ -136,7 +223,7 @@ export default function SecurityGuardDashboard() {
           <div className="flex items-center gap-3">
             <div className="hidden sm:flex items-center gap-2 px-3 py-1.5 rounded-full bg-slate-100 border border-slate-200 text-xs font-semibold text-slate-700">
               <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
-              <span>Online • Shift Live</span>
+              <span>Online • Roster Live</span>
             </div>
 
             <Link href="/dashboard/guard/notifications" className="relative cursor-pointer">
@@ -146,7 +233,7 @@ export default function SecurityGuardDashboard() {
             </Link>
 
             <div className="flex items-center gap-2.5 pl-2 border-l border-slate-200">
-              <div className="w-9 h-9 rounded-full bg-[#0a2f77] text-white flex items-center justify-center font-bold text-xs">
+              <div className="w-9 h-9 rounded-full bg-[#0a2f77] text-white flex items-center justify-center font-bold text-xs shadow-xs">
                 {officerName.slice(0, 2).toUpperCase()}
               </div>
               <div className="hidden lg:flex flex-col text-left">
@@ -185,6 +272,13 @@ export default function SecurityGuardDashboard() {
               >
                 <ShieldCheck className="w-4 h-4" />
                 <span>Active Duty Monitor</span>
+              </Link>
+              <Link
+                href="/dashboard/guard/roster"
+                className="w-full flex items-center gap-2.5 px-3.5 py-2.5 rounded-lg text-xs font-medium text-slate-600 hover:bg-slate-100 transition"
+              >
+                <CalendarDays className="w-4 h-4" />
+                <span>Duty Roster &amp; Shifts</span>
               </Link>
               <Link
                 href="/dashboard/guard/handoff"
@@ -228,6 +322,13 @@ export default function SecurityGuardDashboard() {
 
             <div className="flex flex-wrap items-center gap-2.5">
               <Link
+                href="/dashboard/guard/roster"
+                className="px-3.5 py-2 bg-blue-700 hover:bg-blue-800 text-white font-bold text-xs rounded-lg flex items-center gap-1.5 shadow-xs transition"
+              >
+                <CalendarDays className="w-3.5 h-3.5" />
+                <span>View Full Duty Roster</span>
+              </Link>
+              <Link
                 href="/dashboard/guard/parking"
                 className="px-3.5 py-2 bg-white border border-slate-300 hover:bg-slate-50 text-slate-700 font-bold text-xs rounded-lg flex items-center gap-1.5 shadow-xs transition"
               >
@@ -244,34 +345,102 @@ export default function SecurityGuardDashboard() {
             </div>
           </div>
 
-          {/* ACTIVE SHIFT TELEMETRY CARD */}
-          <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-xs space-y-4">
+          {/* ============================================================== */}
+          {/* TODAY'S DUTY ROSTER CARD (PROMINENT AT TOP)                     */}
+          {/* ============================================================== */}
+          <div className="bg-white border-2 border-blue-600/80 rounded-2xl p-5 shadow-sm space-y-4">
             <div className="flex items-center justify-between border-b border-slate-100 pb-3">
               <div className="flex items-center gap-2">
-                <Shield className="w-4 h-4 text-blue-700" />
-                <span className="text-xs font-bold text-slate-900">
-                  CURRENT ACTIVE SHIFT
+                <Calendar className="w-4 h-4 text-blue-700" />
+                <span className="text-xs font-extrabold text-slate-900 uppercase tracking-wider">
+                  TODAY'S DUTY ASSIGNMENT
+                </span>
+                <span className="text-[10px] bg-blue-100 text-blue-800 font-bold px-2 py-0.5 rounded-full">
+                  ROSTER TOP PRIORITY
                 </span>
               </div>
-              <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-800">
-                ● {activeShift?.status || "ON_DUTY"}
-              </span>
+              <div className="flex items-center gap-2">
+                <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-800 border border-emerald-300">
+                  ● {todayDuty?.status || activeShift?.status || "ON_DUTY"}
+                </span>
+                <Link
+                  href="/dashboard/guard/roster"
+                  className="text-xs font-bold text-blue-700 hover:underline flex items-center gap-0.5"
+                >
+                  <span>Upcoming Duties ({upcomingDuties.length})</span>
+                  <ChevronRight className="w-3.5 h-3.5" />
+                </Link>
+              </div>
             </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 text-xs">
+            <div className="grid grid-cols-1 sm:grid-cols-4 gap-4 text-xs">
               <div className="p-3 bg-slate-50 rounded-xl border border-slate-100">
-                <div className="text-[10px] font-bold uppercase text-slate-400">Post Allocation</div>
-                <div className="font-bold text-slate-900 mt-0.5">{activeShift?.postLocation || "North Perimeter & Gate 04"}</div>
+                <div className="text-[10px] font-bold uppercase text-slate-400 flex items-center gap-1">
+                  <MapPin className="w-3 h-3 text-blue-700" />
+                  <span>Assigned Gate / Post</span>
+                </div>
+                <div className="font-extrabold text-slate-900 mt-1 text-sm">
+                  {todayDuty?.postLocation || activeShift?.postLocation || "Main North Gate & Barrier 04"}
+                </div>
               </div>
+
               <div className="p-3 bg-slate-50 rounded-xl border border-slate-100">
-                <div className="text-[10px] font-bold uppercase text-slate-400">Assigned Officer</div>
-                <div className="font-bold text-slate-900 mt-0.5">{activeShift?.officerName || officerName}</div>
+                <div className="text-[10px] font-bold uppercase text-slate-400 flex items-center gap-1">
+                  <Clock className="w-3 h-3 text-blue-700" />
+                  <span>Shift Window</span>
+                </div>
+                <div className="font-extrabold text-slate-900 mt-1 text-sm">
+                  {todayDuty ? `${todayDuty.startTime} — ${todayDuty.endTime}` : "08:00 — 16:00"}
+                </div>
+                <div className="text-[10px] text-slate-500">
+                  {todayDuty?.shiftType || "MORNING"} SHIFT
+                </div>
               </div>
+
               <div className="p-3 bg-slate-50 rounded-xl border border-slate-100">
-                <div className="text-[10px] font-bold uppercase text-slate-400">Watch Notes</div>
-                <div className="font-bold text-slate-900 mt-0.5">{activeShift?.notes || "Operational watch nominal."}</div>
+                <div className="text-[10px] font-bold uppercase text-slate-400 flex items-center gap-1">
+                  <UserCheck className="w-3 h-3 text-blue-700" />
+                  <span>Supervisor in Charge</span>
+                </div>
+                <div className="font-extrabold text-slate-900 mt-1">
+                  {todayDuty?.supervisorName || "Supervisor Elena Rostova"}
+                </div>
+                <div className="text-[10px] text-slate-500">
+                  Operations Dispatch SS-104
+                </div>
+              </div>
+
+              <div className="p-3 bg-slate-50 rounded-xl border border-slate-100">
+                <div className="text-[10px] font-bold uppercase text-slate-400 flex items-center gap-1">
+                  <ShieldCheck className="w-3 h-3 text-blue-700" />
+                  <span>Reliever Guard</span>
+                </div>
+                <div className="font-extrabold text-slate-900 mt-1">
+                  {todayDuty?.relieverName || "Officer David Chen"}
+                </div>
+                <div className="text-[10px] text-blue-700 font-semibold truncate">
+                  {todayDuty?.notes ? todayDuty.notes.slice(0, 30) + "..." : "Relief window verified"}
+                </div>
               </div>
             </div>
+
+            {/* Upcoming Duties Preview Strip */}
+            {upcomingDuties.length > 0 && (
+              <div className="pt-2 border-t border-slate-100 flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs">
+                <div className="flex items-center gap-2 text-slate-600">
+                  <span className="font-bold text-slate-900">Next Upcoming Duty:</span>
+                  <span className="text-blue-800 font-semibold">
+                    {upcomingDuties[0].dutyDate} • {upcomingDuties[0].startTime} - {upcomingDuties[0].endTime} at {upcomingDuties[0].postLocation}
+                  </span>
+                </div>
+                <Link
+                  href="/dashboard/guard/roster"
+                  className="text-xs font-bold text-blue-700 hover:text-blue-900 hover:underline flex items-center gap-1 self-start sm:self-auto"
+                >
+                  <span>View All {upcomingDuties.length} Upcoming Duties →</span>
+                </Link>
+              </div>
+            )}
           </div>
 
           {/* 3 STAT KPI CARDS */}
@@ -306,14 +475,14 @@ export default function SecurityGuardDashboard() {
 
             <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-xs flex items-center gap-4">
               <div className="w-12 h-12 rounded-xl bg-emerald-50 border border-emerald-100 flex items-center justify-center text-emerald-700 shrink-0">
-                <ShieldCheck className="w-6 h-6" />
+                <CalendarDays className="w-6 h-6" />
               </div>
               <div>
                 <p className="text-[11px] font-bold uppercase tracking-wider text-slate-500">
-                  Resolved Tickets
+                  Upcoming Duties
                 </p>
                 <p className="text-3xl font-extrabold text-slate-900 mt-1">
-                  {incidents.filter((i) => i.status === "RESOLVED").length}
+                  {upcomingDuties.length}
                 </p>
               </div>
             </div>

@@ -64,7 +64,17 @@ export default function SupervisorShiftsPage() {
       const res = await fetch(API_ENDPOINTS.shifts.list);
       if (res.ok) {
         const data = await res.json();
-        setShifts(Array.isArray(data) ? data : []);
+        const mapped: ShiftRecord[] = (Array.isArray(data) ? data : []).map((s: any) => ({
+          ...s,
+          officerName: s.officerName || s.guardName || "Duty Officer",
+          badgeNumber: s.badgeNumber || s.guardBadgeNumber || "SEC-001",
+          gatePost: s.gatePost || s.postLocation || "Campus Checkpoint",
+          sector: s.sector || (s.postLocation && s.postLocation.includes("West") ? "West Perimeter" : s.postLocation && s.postLocation.includes("Library") ? "Library Esplanade" : s.postLocation && s.postLocation.includes("East") ? "East Campus" : "North Academic Quad"),
+          shiftHours: s.shiftHours || (s.startTime && s.endTime ? `${s.startTime} - ${s.endTime}` : "08:00 - 16:00"),
+          radioChannel: s.radioChannel || "Radio Ch 1",
+          status: s.status || "ON_DUTY",
+        }));
+        setShifts(mapped);
       }
     } catch {
       // ignore
@@ -78,9 +88,27 @@ export default function SupervisorShiftsPage() {
     setTimeout(() => setActionNotice(null), 3500);
   };
 
+  const triggerRosterBroadcast = () => {
+    if (typeof window !== "undefined") {
+      try {
+        if ("BroadcastChannel" in window) {
+          const bc = new BroadcastChannel("campusguard_roster_channel");
+          bc.postMessage({ type: "ROSTER_UPDATED", timestamp: Date.now() });
+          bc.close();
+        }
+        localStorage.setItem("campusguard_roster_last_update", Date.now().toString());
+      } catch {}
+    }
+  };
+
   const handleCreateShift = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
+      const times = formShiftHours.split("-").map((t) => t.trim());
+      const startTime = times[0] || "08:00";
+      const endTime = times[1] || "16:00";
+
+      // 1. Post to shifts endpoint
       const res = await fetch(API_ENDPOINTS.shifts.list, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -88,6 +116,7 @@ export default function SupervisorShiftsPage() {
           officerName: formOfficerName,
           badgeNumber: formBadgeNumber,
           gatePost: formGatePost,
+          postLocation: formGatePost,
           sector: formSector,
           shiftHours: formShiftHours,
           radioChannel: formRadioChannel,
@@ -95,13 +124,40 @@ export default function SupervisorShiftsPage() {
         }),
       });
 
+      // 2. Also ensure DutyRoster endpoint is synchronized
+      await fetch(API_ENDPOINTS.dutyRoster.base, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "X-Supervisor-Name": displayName,
+          "X-Supervisor-Badge": displayBadge,
+        },
+        body: JSON.stringify({
+          supervisorName: displayName,
+          supervisorBadgeNumber: displayBadge,
+          guardName: formOfficerName,
+          guardBadgeNumber: formBadgeNumber,
+          postLocation: formGatePost,
+          dutyDate: new Date().toISOString().slice(0, 10),
+          shiftType: formShiftHours.includes("14:00") ? "EVENING" : formShiftHours.includes("22:00") || formShiftHours.includes("00:00") ? "NIGHT" : "MORNING",
+          startTime,
+          endTime,
+          status: "SCHEDULED",
+          notes: `Gate assignment: ${formGatePost} • Sector: ${formSector}`,
+        }),
+      }).catch(() => {});
+
       if (res.ok) {
         showNotification(`Scheduled shift for ${formOfficerName} at ${formGatePost}.`);
         setIsModalOpen(false);
         setFormOfficerName("");
         setFormBadgeNumber("");
         setFormGatePost("");
+        triggerRosterBroadcast();
         loadShifts();
+      } else {
+        const err = await res.json().catch(() => null);
+        showNotification(err?.error || err?.message || "Failed to schedule shift. Verify details.");
       }
     } catch {
       showNotification("Failed to schedule shift. Verify backend connection.");
@@ -113,6 +169,7 @@ export default function SupervisorShiftsPage() {
       const res = await fetch(API_ENDPOINTS.shifts.checkout(id), { method: "POST" });
       if (res.ok) {
         showNotification(`Shift #${id} checked out.`);
+        triggerRosterBroadcast();
         loadShifts();
       }
     } catch {
@@ -125,6 +182,7 @@ export default function SupervisorShiftsPage() {
       const res = await fetch(API_ENDPOINTS.shifts.escalate(id), { method: "POST" });
       if (res.ok) {
         showNotification(`Shift #${id} flagged as ESCALATED in dispatch console.`);
+        triggerRosterBroadcast();
         loadShifts();
       }
     } catch {

@@ -59,6 +59,7 @@ export default function SupervisorProfilePage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           email: user.email,
+          fullName: name,
           name,
           department,
           badgeNumber,
@@ -69,7 +70,8 @@ export default function SupervisorProfilePage() {
       if (res.ok) {
         const updated = await res.json();
         updateStoredAuthUser({
-          name: updated.name || name,
+          fullName: updated.fullName || updated.name || name,
+          name: updated.name || updated.fullName || name,
           department: updated.department || department,
           badgeNumber: updated.badgeNumber || badgeNumber,
           phoneNumber: updated.phoneNumber || phoneNumber,
@@ -78,7 +80,8 @@ export default function SupervisorProfilePage() {
           prev
             ? {
                 ...prev,
-                name: updated.name || name,
+                fullName: updated.fullName || updated.name || name,
+                name: updated.name || updated.fullName || name,
                 department: updated.department || department,
                 badgeNumber: updated.badgeNumber || badgeNumber,
                 phoneNumber: updated.phoneNumber || phoneNumber,

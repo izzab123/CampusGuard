@@ -29,6 +29,11 @@ public class ShiftLog {
 
     private String notes;
 
+    private String gatePost;
+    private String sector;
+    private String shiftHours;
+    private String radioChannel;
+
     public ShiftLog() {
         this.shiftStart = LocalDateTime.now();
         this.status = "ON_DUTY";
@@ -40,8 +45,31 @@ public class ShiftLog {
         this.officerName = officerName;
         this.badgeNumber = badgeNumber;
         this.postLocation = postLocation;
+        this.gatePost = postLocation;
         this.biometricVerified = biometricVerified;
         this.notes = notes;
+    }
+
+    @PrePersist
+    public void onPrePersist() {
+        if (this.postLocation == null || this.postLocation.isBlank()) {
+            this.postLocation = (this.gatePost != null && !this.gatePost.isBlank()) ? this.gatePost : "General Campus Checkpoint";
+        }
+        if (this.gatePost == null || this.gatePost.isBlank()) {
+            this.gatePost = this.postLocation;
+        }
+        if (this.officerName == null || this.officerName.isBlank()) {
+            this.officerName = "Duty Officer";
+        }
+        if (this.badgeNumber == null || this.badgeNumber.isBlank()) {
+            this.badgeNumber = "SEC-001";
+        }
+        if (this.shiftStart == null) {
+            this.shiftStart = LocalDateTime.now();
+        }
+        if (this.status == null || this.status.isBlank()) {
+            this.status = "ON_DUTY";
+        }
     }
 
     // Getters and Setters
@@ -54,8 +82,34 @@ public class ShiftLog {
     public String getBadgeNumber() { return badgeNumber; }
     public void setBadgeNumber(String badgeNumber) { this.badgeNumber = badgeNumber; }
 
-    public String getPostLocation() { return postLocation; }
-    public void setPostLocation(String postLocation) { this.postLocation = postLocation; }
+    public String getPostLocation() { 
+        return (postLocation != null && !postLocation.isBlank()) ? postLocation : gatePost; 
+    }
+    public void setPostLocation(String postLocation) { 
+        this.postLocation = postLocation;
+        if (this.gatePost == null || this.gatePost.isBlank()) {
+            this.gatePost = postLocation;
+        }
+    }
+
+    public String getGatePost() { 
+        return (gatePost != null && !gatePost.isBlank()) ? gatePost : postLocation; 
+    }
+    public void setGatePost(String gatePost) { 
+        this.gatePost = gatePost;
+        if (this.postLocation == null || this.postLocation.isBlank()) {
+            this.postLocation = gatePost;
+        }
+    }
+
+    public String getSector() { return sector; }
+    public void setSector(String sector) { this.sector = sector; }
+
+    public String getShiftHours() { return shiftHours; }
+    public void setShiftHours(String shiftHours) { this.shiftHours = shiftHours; }
+
+    public String getRadioChannel() { return radioChannel; }
+    public void setRadioChannel(String radioChannel) { this.radioChannel = radioChannel; }
 
     public String getStatus() { return status; }
     public void setStatus(String status) { this.status = status; }

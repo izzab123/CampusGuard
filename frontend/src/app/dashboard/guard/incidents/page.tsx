@@ -12,7 +12,8 @@ import {
   Radio,
   Send,
   Loader2,
-  CheckCircle2
+  CheckCircle2,
+  Save
 } from "lucide-react";
 import { performLogout, getStoredAuthUser, AuthUser } from "@/lib/auth";
 import { API_ENDPOINTS } from "@/lib/api";
@@ -86,9 +87,12 @@ export default function GuardIncidentsPage() {
         setTitle("");
         setNarrative("");
         fetchIncidents();
+      } else {
+        const err = await res.json().catch(() => null);
+        handleAction(err?.message || "Failed to record incident. Verify field inputs.");
       }
     } catch {
-      handleAction("Incident saved in local queue.");
+      handleAction("Failed to submit incident. Verify server connection.");
     } finally {
       setSubmitting(false);
     }
@@ -127,6 +131,9 @@ export default function GuardIncidentsPage() {
             <nav className="hidden md:flex items-center gap-6 pl-4 text-xs font-semibold text-slate-600">
               <Link href="/dashboard/guard" className="py-5 hover:text-slate-900 transition">
                 Dashboard
+              </Link>
+              <Link href="/dashboard/guard/roster" className="py-5 hover:text-slate-900 transition">
+                Duty Roster
               </Link>
               <Link href="/dashboard/guard/handoff" className="py-5 hover:text-slate-900 transition">
                 Handoff
@@ -255,12 +262,12 @@ export default function GuardIncidentsPage() {
                 {submitting ? (
                   <>
                     <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                    <span>Transmitting...</span>
+                    <span>Saving Incident...</span>
                   </>
                 ) : (
                   <>
-                    <Send className="w-3.5 h-3.5" />
-                    <span>Submit Incident Log</span>
+                    <Save className="w-3.5 h-3.5" />
+                    <span>Save &amp; Log Incident</span>
                   </>
                 )}
               </button>

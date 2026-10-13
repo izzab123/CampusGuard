@@ -11,8 +11,13 @@ import {
   PlusCircle,
   Clock,
   RotateCcw,
-  CheckCircle2
+  CheckCircle2,
+  Plus,
+  X,
+  Loader2,
+  Save
 } from "lucide-react";
+import { getStoredAuthUser } from "@/lib/auth";
 import { API_ENDPOINTS } from "@/lib/api";
 
 interface IncidentItem {
@@ -31,6 +36,14 @@ export default function ProctorDashboardView() {
   const [incidents, setIncidents] = useState<IncidentItem[]>([]);
   const [actionNotice, setActionNotice] = useState<string | null>(null);
 
+  // New Case Modal State
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [caseTitle, setCaseTitle] = useState("");
+  const [caseLocation, setCaseLocation] = useState("Central Academic Quad");
+  const [caseSeverity, setCaseSeverity] = useState("HIGH");
+  const [caseDescription, setCaseDescription] = useState("");
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
   const fetchIncidents = async () => {
     try {
       const res = await fetch(API_ENDPOINTS.incidents.base);
@@ -48,6 +61,45 @@ export default function ProctorDashboardView() {
   const handleAction = (msg: string) => {
     setActionNotice(msg);
     setTimeout(() => setActionNotice(null), 4000);
+  };
+
+  const handleCreateIncident = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!caseTitle.trim()) return;
+
+    setIsSubmitting(true);
+    try {
+      const user = getStoredAuthUser();
+      const reporter = user?.fullName || user?.name || "Dr. Arthur Vance";
+      const res = await fetch(API_ENDPOINTS.incidents.base, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          title: caseTitle,
+          description: caseDescription,
+          severity: caseSeverity,
+          location: caseLocation,
+          reporterName: reporter,
+          reporterRole: "Proctor and DSW",
+        }),
+      });
+
+      if (res.ok) {
+        const saved = await res.json();
+        handleAction(`Disciplinary Case #INC-${saved.id} successfully recorded into Institutional Dossier.`);
+        setIsModalOpen(false);
+        setCaseTitle("");
+        setCaseDescription("");
+        fetchIncidents();
+      } else {
+        const err = await res.json().catch(() => null);
+        handleAction(err?.message || "Failed to record case. Verify inputs.");
+      }
+    } catch {
+      handleAction("Network error: Could not reach backend.");
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   const handleResolve = async (id: number) => {
@@ -102,6 +154,14 @@ export default function ProctorDashboardView() {
             <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
             <span>TELEMETRY ACTIVE • LIVE SYNC</span>
           </div>
+          <button
+            type="button"
+            onClick={() => setIsModalOpen(true)}
+            className="px-4 py-2 bg-[#0a2f77] hover:bg-[#082660] text-white font-bold text-xs rounded-lg flex items-center gap-1.5 shadow-xs transition cursor-pointer"
+          >
+            <Plus className="w-3.5 h-3.5" />
+            <span>Log Incident / New Case</span>
+          </button>
           <button
             type="button"
             onClick={fetchIncidents}
@@ -262,6 +322,93 @@ export default function ProctorDashboardView() {
           </table>
         </div>
       </div>
+
+      {/* NEW CASE / INCIDENT MODAL */}
+      {isModalOpen && (
+        <div className="fixed inset-0 z-50 bg-black/40 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl max-w-md w-full p-6 shadow-xl space-y-4">
+            <div className="flex items-center justify-between border-b pb-3">
+              <h3 className="font-extrabold text-base text-slate-900 flex items-center gap-2">
+                <Gavel className="w-4 h-4 text-[#0a2f77]" />
+                <span>Record Disciplinary Case / Safety Incident</span>
+              </h3>
+              <button onClick={() => setIsModalOpen(false)} className="text-slate-400 hover:text-slate-700 cursor-pointer">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <form onSubmit={handleCreateIncident} className="space-y-3 text-xs">
+              <div>
+                <label className="font-bold text-slate-700 block mb-1">Case / Incident Title</label>
+                <input
+                  type="text"
+                  required
+                  placeholder="e.g. Code §4.2 Academic Conduct / Library Altercation"
+                  value={caseTitle}
+                  onChange={(e) => setCaseTitle(e.target.value)}
+                  className="w-full p-2 border border-slate-300 rounded-lg text-slate-900 focus:outline-none focus:ring-1 focus:ring-blue-600"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-2">
+                <div>
+                  <label className="font-bold text-slate-700 block mb-1">Severity</label>
+                  <select
+                    value={caseSeverity}
+                    onChange={(e) => setCaseSeverity(e.target.value)}
+                    className="w-full p-2 border border-slate-300 rounded-lg text-slate-900"
+                  >
+                    <option value="CRITICAL">Critical</option>
+                    <option value="HIGH">High</option>
+                    <option value="MEDIUM">Medium</option>
+                    <option value="LOW">Low</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="font-bold text-slate-700 block mb-1">Sector / Zone</label>
+                  <input
+                    type="text"
+                    required
+                    value={caseLocation}
+                    onChange={(e) => setCaseLocation(e.target.value)}
+                    className="w-full p-2 border border-slate-300 rounded-lg text-slate-900 focus:outline-none focus:ring-1 focus:ring-blue-600"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="font-bold text-slate-700 block mb-1">Case Evidence &amp; Disciplinary Findings</label>
+                <textarea
+                  rows={3}
+                  required
+                  placeholder="Record summary of misconduct, student statements, surveillance references..."
+                  value={caseDescription}
+                  onChange={(e) => setCaseDescription(e.target.value)}
+                  className="w-full p-2 border border-slate-300 rounded-lg text-slate-900 focus:outline-none focus:ring-1 focus:ring-blue-600 resize-none"
+                />
+              </div>
+
+              <div className="flex justify-end gap-2 pt-3 border-t">
+                <button
+                  type="button"
+                  onClick={() => setIsModalOpen(false)}
+                  className="px-3.5 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold rounded-lg cursor-pointer"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={isSubmitting}
+                  className="px-4 py-2 bg-[#0a2f77] hover:bg-[#082660] text-white font-bold rounded-lg flex items-center gap-1.5 shadow-xs cursor-pointer disabled:opacity-50"
+                >
+                  {isSubmitting ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Save className="w-3.5 h-3.5" />}
+                  <span>Save &amp; Log Case</span>
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

@@ -109,6 +109,9 @@ export default function GuardParkingPage() {
               <Link href="/dashboard/guard" className="py-5 hover:text-slate-900 transition">
                 Dashboard
               </Link>
+              <Link href="/dashboard/guard/roster" className="py-5 hover:text-slate-900 transition">
+                Duty Roster
+              </Link>
               <Link href="/dashboard/guard/handoff" className="py-5 hover:text-slate-900 transition">
                 Handoff
               </Link>

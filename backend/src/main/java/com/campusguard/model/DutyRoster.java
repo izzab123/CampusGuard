@@ -28,6 +28,8 @@ public class DutyRoster {
     @Column(nullable = false)
     private String guardBadgeNumber;
 
+    private String guardEmail;
+
     // Post / Station Location
     @Column(nullable = false)
     private String postLocation;
@@ -162,11 +164,35 @@ public class DutyRoster {
     public String getGuardName() { return guardName; }
     public void setGuardName(String guardName) { this.guardName = guardName; }
 
+    public String getOfficerName() { return guardName; }
+    public void setOfficerName(String officerName) { 
+        if (this.guardName == null || this.guardName.isBlank()) {
+            this.guardName = officerName;
+        }
+    }
+
     public String getGuardBadgeNumber() { return guardBadgeNumber; }
     public void setGuardBadgeNumber(String guardBadgeNumber) { this.guardBadgeNumber = guardBadgeNumber; }
 
+    public String getBadgeNumber() { return guardBadgeNumber; }
+    public void setBadgeNumber(String badgeNumber) { 
+        if (this.guardBadgeNumber == null || this.guardBadgeNumber.isBlank()) {
+            this.guardBadgeNumber = badgeNumber;
+        }
+    }
+
+    public String getGuardEmail() { return guardEmail; }
+    public void setGuardEmail(String guardEmail) { this.guardEmail = guardEmail; }
+
     public String getPostLocation() { return postLocation; }
     public void setPostLocation(String postLocation) { this.postLocation = postLocation; }
+
+    public String getGatePost() { return postLocation; }
+    public void setGatePost(String gatePost) { 
+        if (this.postLocation == null || this.postLocation.isBlank()) {
+            this.postLocation = gatePost;
+        }
+    }
 
     public LocalDate getDutyDate() { return dutyDate; }
     public void setDutyDate(LocalDate dutyDate) { this.dutyDate = dutyDate; }

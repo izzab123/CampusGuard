@@ -40,7 +40,7 @@ public interface DutyRosterRepository extends JpaRepository<DutyRoster, Long> {
            "(:status IS NULL OR LOWER(r.status) = LOWER(:status)) AND " +
            "(:postLocation IS NULL OR LOWER(r.postLocation) LIKE LOWER(CONCAT('%', :postLocation, '%'))) AND " +
            "(:supervisor IS NULL OR LOWER(r.supervisorName) LIKE LOWER(CONCAT('%', :supervisor, '%')) OR LOWER(r.supervisorBadgeNumber) = LOWER(:supervisor)) AND " +
-           "(:guard IS NULL OR LOWER(r.guardName) LIKE LOWER(CONCAT('%', :guard, '%')) OR LOWER(r.guardBadgeNumber) = LOWER(:guard)) " +
+           "(:guard IS NULL OR LOWER(r.guardName) LIKE LOWER(CONCAT('%', :guard, '%')) OR LOWER(r.guardBadgeNumber) = LOWER(:guard) OR (r.guardEmail IS NOT NULL AND LOWER(r.guardEmail) = LOWER(:guard))) " +
            "ORDER BY r.dutyDate DESC, r.startTime ASC")
     List<DutyRoster> searchRoster(
             @Param("dutyDate") LocalDate dutyDate,
@@ -48,5 +48,42 @@ public interface DutyRosterRepository extends JpaRepository<DutyRoster, Long> {
             @Param("postLocation") String postLocation,
             @Param("supervisor") String supervisor,
             @Param("guard") String guard
+    );
+
+    @Query("SELECT r FROM DutyRoster r WHERE " +
+           "(:guardEmail IS NOT NULL AND LOWER(r.guardEmail) = LOWER(:guardEmail)) OR " +
+           "(:guardBadge IS NOT NULL AND (LOWER(r.guardBadgeNumber) = LOWER(:guardBadge) OR LOWER(r.relieverBadgeNumber) = LOWER(:guardBadge))) OR " +
+           "(:guardName IS NOT NULL AND (LOWER(r.guardName) = LOWER(:guardName) OR LOWER(r.relieverName) = LOWER(:guardName))) " +
+           "ORDER BY r.dutyDate ASC, r.startTime ASC")
+    List<DutyRoster> findRosterForGuard(
+            @Param("guardEmail") String guardEmail,
+            @Param("guardBadge") String guardBadge,
+            @Param("guardName") String guardName
+    );
+
+    @Query("SELECT r FROM DutyRoster r WHERE " +
+           "((:guardEmail IS NOT NULL AND LOWER(r.guardEmail) = LOWER(:guardEmail)) OR " +
+           " (:guardBadge IS NOT NULL AND (LOWER(r.guardBadgeNumber) = LOWER(:guardBadge) OR LOWER(r.relieverBadgeNumber) = LOWER(:guardBadge))) OR " +
+           " (:guardName IS NOT NULL AND (LOWER(r.guardName) = LOWER(:guardName) OR LOWER(r.relieverName) = LOWER(:guardName)))) " +
+           "AND r.dutyDate = :today " +
+           "ORDER BY r.startTime ASC")
+    List<DutyRoster> findTodayRosterForGuard(
+            @Param("today") LocalDate today,
+            @Param("guardEmail") String guardEmail,
+            @Param("guardBadge") String guardBadge,
+            @Param("guardName") String guardName
+    );
+
+    @Query("SELECT r FROM DutyRoster r WHERE " +
+           "((:guardEmail IS NOT NULL AND LOWER(r.guardEmail) = LOWER(:guardEmail)) OR " +
+           " (:guardBadge IS NOT NULL AND (LOWER(r.guardBadgeNumber) = LOWER(:guardBadge) OR LOWER(r.relieverBadgeNumber) = LOWER(:guardBadge))) OR " +
+           " (:guardName IS NOT NULL AND (LOWER(r.guardName) = LOWER(:guardName) OR LOWER(r.relieverName) = LOWER(:guardName)))) " +
+           "AND r.dutyDate >= :fromDate " +
+           "ORDER BY r.dutyDate ASC, r.startTime ASC")
+    List<DutyRoster> findUpcomingRosterForGuard(
+            @Param("fromDate") LocalDate fromDate,
+            @Param("guardEmail") String guardEmail,
+            @Param("guardBadge") String guardBadge,
+            @Param("guardName") String guardName
     );
 }

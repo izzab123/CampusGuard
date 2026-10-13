@@ -26,6 +26,8 @@ public class User {
 
     private String department;
 
+    private String phoneNumber;
+
     private String status; // ACTIVE, SUSPENDED, PENDING
 
     private LocalDateTime createdAt;
@@ -104,6 +106,14 @@ public class User {
 
     public void setDepartment(String department) {
         this.department = department;
+    }
+
+    public String getPhoneNumber() {
+        return phoneNumber;
+    }
+
+    public void setPhoneNumber(String phoneNumber) {
+        this.phoneNumber = phoneNumber;
     }
 
     public String getStatus() {

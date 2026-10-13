@@ -27,11 +27,27 @@ public class IncidentController {
 
     @PostMapping
     public ResponseEntity<IncidentReport> createIncident(@RequestBody IncidentReport report) {
-        // Automatic escalation routing logic based on severity
+        if (report.getTitle() == null || report.getTitle().isBlank()) {
+            report.setTitle("General Safety Incident Log");
+        }
+        if (report.getSeverity() == null || report.getSeverity().isBlank()) {
+            report.setSeverity("MEDIUM");
+        }
+        if (report.getDescription() == null) {
+            report.setDescription("");
+        }
+        if (report.getLocation() == null || report.getLocation().isBlank()) {
+            report.setLocation("Campus Grounds");
+        }
+        // Automatic escalation routing logic based on severity and role
         if ("CRITICAL".equalsIgnoreCase(report.getSeverity()) || "HIGH".equalsIgnoreCase(report.getSeverity())) {
             report.setRoutedTo("PROCTOR_AND_DSW");
         } else if (report.getRoutedTo() == null || report.getRoutedTo().isBlank()) {
-            report.setRoutedTo("CENTRAL_DISPATCH");
+            if ("Proctor and DSW".equalsIgnoreCase(report.getReporterRole())) {
+                report.setRoutedTo("PROCTOR_AND_DSW");
+            } else {
+                report.setRoutedTo("CENTRAL_DISPATCH");
+            }
         }
         if (report.getCreatedAt() == null) {
             report.setCreatedAt(LocalDateTime.now());

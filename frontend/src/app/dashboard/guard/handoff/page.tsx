@@ -76,6 +76,9 @@ export default function GuardHandoffPage() {
         handleAction(`Officer ${officer} checked in on duty at ${postLocation}.`);
         setNotes("");
         fetchShifts();
+      } else {
+        const err = await res.json().catch(() => null);
+        handleAction(err?.message || "Failed to record check-in.");
       }
     } catch {
       handleAction("Check-in logged to offline cache.");
@@ -117,6 +120,9 @@ export default function GuardHandoffPage() {
             <nav className="hidden md:flex items-center gap-6 pl-4 text-xs font-semibold text-slate-600">
               <Link href="/dashboard/guard" className="py-5 hover:text-slate-900 transition">
                 Dashboard
+              </Link>
+              <Link href="/dashboard/guard/roster" className="py-5 hover:text-slate-900 transition">
+                Duty Roster
               </Link>
               <Link href="/dashboard/guard/handoff" className="py-5 text-blue-700 font-bold border-b-2 border-blue-700">
                 Handoff
@@ -210,7 +216,7 @@ export default function GuardHandoffPage() {
                 className="w-full py-2.5 bg-[#0a2f77] hover:bg-[#082660] text-white font-bold text-xs rounded-xl flex items-center justify-center gap-1.5 shadow-xs transition cursor-pointer disabled:opacity-50"
               >
                 {submitting ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <FileCheck2 className="w-3.5 h-3.5" />}
-                <span>Record Shift Check-In</span>
+                <span>Save &amp; Record Shift Check-In</span>
               </button>
             </form>
           </div>

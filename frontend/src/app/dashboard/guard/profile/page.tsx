@@ -98,6 +98,7 @@ export default function GuardProfilePage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           email: user.email,
+          fullName: name,
           name,
           department,
           badgeNumber,
@@ -108,7 +109,8 @@ export default function GuardProfilePage() {
       if (res.ok) {
         const updated = await res.json();
         updateStoredAuthUser({
-          name: updated.name || name,
+          fullName: updated.fullName || updated.name || name,
+          name: updated.name || updated.fullName || name,
           department: updated.department || department,
           badgeNumber: updated.badgeNumber || badgeNumber,
           phoneNumber: updated.phoneNumber || phoneNumber,
@@ -117,7 +119,8 @@ export default function GuardProfilePage() {
           prev
             ? {
                 ...prev,
-                name: updated.name || name,
+                fullName: updated.fullName || updated.name || name,
+                name: updated.name || updated.fullName || name,
                 department: updated.department || department,
                 badgeNumber: updated.badgeNumber || badgeNumber,
                 phoneNumber: updated.phoneNumber || phoneNumber,
@@ -130,7 +133,7 @@ export default function GuardProfilePage() {
       }
     } catch {
       // Fallback local update
-      updateStoredAuthUser({ name, department, badgeNumber, phoneNumber });
+      updateStoredAuthUser({ fullName: name, name, department, badgeNumber, phoneNumber });
       setIsEditing(false);
       setSaveSuccess(true);
       setTimeout(() => setSaveSuccess(false), 3000);
@@ -170,6 +173,12 @@ export default function GuardProfilePage() {
                 className="py-5 relative transition cursor-pointer text-slate-600 hover:text-slate-900"
               >
                 Dashboard
+              </Link>
+              <Link
+                href="/dashboard/guard/roster"
+                className="py-5 relative transition cursor-pointer text-slate-600 hover:text-slate-900"
+              >
+                Duty Roster
               </Link>
               <Link
                 href="/dashboard/guard/handoff"
