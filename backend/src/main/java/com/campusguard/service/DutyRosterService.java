@@ -1,8 +1,11 @@
 package com.campusguard.service;
 
+import com.campusguard.dto.DutyReassignmentRequest;
+import com.campusguard.model.AuditLog;
+import com.campusguard.model.DutyReassignmentHistory;
 import com.campusguard.model.DutyRoster;
-import com.campusguard.repository.DutyRosterRepository;
-import com.campusguard.repository.UserRepository;
+import com.campusguard.model.Notification;
+import com.campusguard.repository.*;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -17,15 +20,30 @@ public class DutyRosterService {
 
     private final DutyRosterRepository dutyRosterRepo;
     private final UserRepository userRepo;
+    private final DutyReassignmentHistoryRepository reassignmentRepo;
+    private final NotificationRepository notificationRepo;
+    private final AuditLogRepository auditLogRepo;
 
     @Autowired
-    public DutyRosterService(DutyRosterRepository dutyRosterRepo, @Autowired(required = false) UserRepository userRepo) {
+    public DutyRosterService(
+            DutyRosterRepository dutyRosterRepo,
+            @Autowired(required = false) UserRepository userRepo,
+            @Autowired(required = false) DutyReassignmentHistoryRepository reassignmentRepo,
+            @Autowired(required = false) NotificationRepository notificationRepo,
+            @Autowired(required = false) AuditLogRepository auditLogRepo) {
         this.dutyRosterRepo = dutyRosterRepo;
         this.userRepo = userRepo;
+        this.reassignmentRepo = reassignmentRepo;
+        this.notificationRepo = notificationRepo;
+        this.auditLogRepo = auditLogRepo;
+    }
+
+    public DutyRosterService(DutyRosterRepository dutyRosterRepo, UserRepository userRepo) {
+        this(dutyRosterRepo, userRepo, null, null, null);
     }
 
     public DutyRosterService(DutyRosterRepository dutyRosterRepo) {
-        this(dutyRosterRepo, null);
+        this(dutyRosterRepo, null, null, null, null);
     }
 
     public DutyRoster createShiftSchedule(DutyRoster roster, String supervisorNameHeader, String supervisorBadgeHeader) {
@@ -402,5 +420,177 @@ public class DutyRosterService {
         @SuppressWarnings("unchecked")
         List<DutyRoster> list = (List<DutyRoster>) map.get("allDuties");
         return list;
+    }
+
+    /**
+     * Reassigns an absent guard's duty to an available replacement guard.
+     * Maintains roster history containing both original and new assignments,
+     * reason for reassignment, notifies the replacement guard, and ensures
+     * the absent guard's status is marked as an excused absence (NOT a no-show).
+     */
+    public DutyReassignmentHistory reassignDutyShift(
+            Long dutyRosterId,
+            DutyReassignmentRequest req,
+            String supervisorNameHeader,
+            String supervisorBadgeHeader) {
+        if (dutyRosterId == null) {
+            throw new IllegalArgumentException("Duty roster ID is required for reassignment");
+        }
+        if (req == null) {
+            throw new IllegalArgumentException("Reassignment payload cannot be null");
+        }
+        if (req.getReplacementGuardName() == null || req.getReplacementGuardName().isBlank()) {
+            throw new IllegalArgumentException("Replacement guard name is required");
+        }
+        if (req.getReplacementGuardBadgeNumber() == null || req.getReplacementGuardBadgeNumber().isBlank()) {
+            throw new IllegalArgumentException("Replacement guard badge number is required");
+        }
+        if (req.getReason() == null || req.getReason().isBlank()) {
+            throw new IllegalArgumentException("Reassignment reason is required");
+        }
+
+        DutyRoster roster = dutyRosterRepo.findById(dutyRosterId)
+                .orElseThrow(() -> new NoSuchElementException("Duty roster shift not found with ID: " + dutyRosterId));
+
+        // 1. Capture original absent guard details
+        String originalGuardName = roster.getGuardName();
+        String originalGuardBadge = roster.getGuardBadgeNumber();
+        String originalGuardEmail = roster.getGuardEmail();
+
+        // 2. Resolve supervisor metadata
+        String supervisorName = (supervisorNameHeader != null && !supervisorNameHeader.isBlank())
+                ? supervisorNameHeader.trim()
+                : (req.getSupervisorName() != null && !req.getSupervisorName().isBlank())
+                ? req.getSupervisorName().trim()
+                : (roster.getSupervisorName() != null ? roster.getSupervisorName() : "Shift Supervisor");
+
+        String supervisorBadge = (supervisorBadgeHeader != null && !supervisorBadgeHeader.isBlank())
+                ? supervisorBadgeHeader.trim()
+                : (req.getSupervisorBadgeNumber() != null && !req.getSupervisorBadgeNumber().isBlank())
+                ? req.getSupervisorBadgeNumber().trim()
+                : roster.getSupervisorBadgeNumber();
+
+        // 3. Resolve replacement guard email from repository if not explicitly supplied
+        String replacementEmail = req.getReplacementGuardEmail();
+        if ((replacementEmail == null || replacementEmail.isBlank()) && userRepo != null) {
+            try {
+                var userOpt = userRepo.findByBadgeNumber(req.getReplacementGuardBadgeNumber().trim());
+                if (userOpt.isPresent()) {
+                    replacementEmail = userOpt.get().getEmail();
+                } else {
+                    var userByName = userRepo.findByFullNameIgnoreCase(req.getReplacementGuardName().trim());
+                    if (userByName.isPresent()) {
+                        replacementEmail = userByName.get().getEmail();
+                    }
+                }
+            } catch (Exception ignored) {}
+        }
+        if (replacementEmail == null || replacementEmail.isBlank()) {
+            replacementEmail = "guard@" + req.getReplacementGuardBadgeNumber().toLowerCase().replaceAll("[^a-z0-9]", "") + ".campusguard.edu";
+        }
+
+        // 4. Update roster record with replacement guard & excused absence flags
+        roster.setReassigned(true);
+        roster.setOriginalGuardName(originalGuardName);
+        roster.setOriginalGuardBadgeNumber(originalGuardBadge);
+        roster.setOriginalGuardEmail(originalGuardEmail);
+        roster.setReassignmentReason(req.getReason().trim());
+        roster.setReassignedAt(LocalDateTime.now());
+
+        // CRITICAL REQUIREMENT: Excused absence - does NOT count as a no-show
+        roster.setAbsentGuardAttendanceStatus("EXCUSED_ABSENCE");
+        roster.setCountsAsNoShow(false);
+
+        // Assign to replacement guard
+        roster.setGuardName(req.getReplacementGuardName().trim());
+        roster.setGuardBadgeNumber(req.getReplacementGuardBadgeNumber().trim());
+        roster.setGuardEmail(replacementEmail);
+        roster.setStatus("REASSIGNED");
+        roster.setNotes("Reassigned from Officer " + originalGuardName + " (" + req.getReason().trim() + "). Excused absence - not marked as no-show.");
+        roster.setSupervisorName(supervisorName);
+        if (supervisorBadge != null) {
+            roster.setSupervisorBadgeNumber(supervisorBadge);
+        }
+
+        DutyRoster updatedRoster = dutyRosterRepo.save(roster);
+
+        // 5. Create and persist Roster Reassignment History audit entry
+        DutyReassignmentHistory history = new DutyReassignmentHistory(
+                updatedRoster.getId(),
+                updatedRoster.getDutyDate(),
+                updatedRoster.getPostLocation(),
+                updatedRoster.getShiftType(),
+                (updatedRoster.getStartTime() != null ? updatedRoster.getStartTime() : "") + " - " + (updatedRoster.getEndTime() != null ? updatedRoster.getEndTime() : ""),
+                originalGuardName,
+                originalGuardBadge,
+                originalGuardEmail,
+                updatedRoster.getGuardName(),
+                updatedRoster.getGuardBadgeNumber(),
+                updatedRoster.getGuardEmail(),
+                req.getReason().trim(),
+                supervisorName,
+                supervisorBadge
+        );
+        history.setOriginalGuardAttendanceStatus("EXCUSED_ABSENCE");
+        history.setCountsAsNoShow(false);
+        history.setReassignedAt(LocalDateTime.now());
+
+        if (reassignmentRepo != null) {
+            history = reassignmentRepo.save(history);
+        }
+
+        // 6. Notify the replacement guard about the new duty assignment
+        if (notificationRepo != null) {
+            try {
+                String shiftTimes = (updatedRoster.getStartTime() != null ? updatedRoster.getStartTime() : "Shift") + " to " + (updatedRoster.getEndTime() != null ? updatedRoster.getEndTime() : "");
+                String message = String.format(
+                        "You have been assigned as replacement officer for %s at %s (%s) on %s. Reason: %s.",
+                        originalGuardName,
+                        updatedRoster.getPostLocation(),
+                        shiftTimes,
+                        updatedRoster.getDutyDate() != null ? updatedRoster.getDutyDate().toString() : "Today",
+                        req.getReason().trim()
+                );
+
+                Notification notif = new Notification(
+                        "Security Guard",
+                        updatedRoster.getGuardEmail(),
+                        "Duty Reassignment: " + updatedRoster.getPostLocation(),
+                        message,
+                        "DISPATCH",
+                        "HIGH"
+                );
+                notificationRepo.save(notif);
+            } catch (Exception ignored) {}
+        }
+
+        // 7. Record in system operational audit log
+        if (auditLogRepo != null) {
+            try {
+                AuditLog log = new AuditLog(
+                        "REASSIGN_DUTY",
+                        "Shift at " + updatedRoster.getPostLocation() + " reassigned from " + originalGuardName + " (" + originalGuardBadge + ") to " + updatedRoster.getGuardName() + " (" + updatedRoster.getGuardBadgeNumber() + "). Reason: " + req.getReason() + ". Excused absence - no-show: false",
+                        supervisorName,
+                        "Shift Supervisor",
+                        "127.0.0.1",
+                        "INFO"
+                );
+                auditLogRepo.save(log);
+            } catch (Exception ignored) {}
+        }
+
+        return history;
+    }
+
+    @Transactional(readOnly = true)
+    public List<DutyReassignmentHistory> getAllReassignmentHistory() {
+        if (reassignmentRepo == null) return Collections.emptyList();
+        return reassignmentRepo.findAllByOrderByReassignedAtDesc();
+    }
+
+    @Transactional(readOnly = true)
+    public List<DutyReassignmentHistory> getReassignmentHistoryForRoster(Long dutyRosterId) {
+        if (reassignmentRepo == null || dutyRosterId == null) return Collections.emptyList();
+        return reassignmentRepo.findByDutyRosterIdOrderByReassignedAtDesc(dutyRosterId);
     }
 }

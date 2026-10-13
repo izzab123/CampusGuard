@@ -28,6 +28,12 @@ public class DutyRosterControllerTest {
     @Autowired
     private DutyRosterRepository dutyRosterRepository;
 
+    @Autowired
+    private com.campusguard.repository.DutyReassignmentHistoryRepository reassignmentRepository;
+
+    @Autowired
+    private com.campusguard.repository.NotificationRepository notificationRepository;
+
     private MockMvc mockMvc;
     private ObjectMapper objectMapper;
 
@@ -36,6 +42,12 @@ public class DutyRosterControllerTest {
         mockMvc = MockMvcBuilders.webAppContextSetup(webApplicationContext).build();
         objectMapper = new ObjectMapper();
         dutyRosterRepository.deleteAll();
+        if (reassignmentRepository != null) {
+            reassignmentRepository.deleteAll();
+        }
+        if (notificationRepository != null) {
+            notificationRepository.deleteAll();
+        }
     }
 
     @Test
@@ -345,5 +357,152 @@ public class DutyRosterControllerTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.todayDuty.postLocation").value("Emergency East Perimeter Gate"))
                 .andExpect(jsonPath("$.todayDuty.status").value("ACTIVE"));
+    }
+
+    @Test
+    void supervisorCanReassignAbsentGuardShiftToReplacementGuardWithExcusedAbsenceAndNotification() throws Exception {
+        LocalDate today = LocalDate.now();
+
+        // 1. Initial shift assigned to Officer Tariq Mansoor (who calls in sick/absent)
+        DutyRoster originalShift = new DutyRoster(
+                "Supervisor Sarah Connor",
+                "Officer Tariq Mansoor",
+                "GD-201",
+                "North Gate Checkpoint",
+                today,
+                "MORNING",
+                "08:00",
+                "16:00"
+        );
+        originalShift.setGuardEmail("tariq@campusguard.edu");
+        DutyRoster saved = dutyRosterRepository.save(originalShift);
+
+        // 2. Supervisor reassigns shift to replacement guard Officer Marcus Vance due to Medical Leave
+        String reassignPayload = """
+                {
+                    "replacementGuardName": "Officer Marcus Vance",
+                    "replacementGuardBadgeNumber": "Shield #4082",
+                    "replacementGuardEmail": "guard@campusguard.edu",
+                    "reason": "Sudden Medical Illness / Emergency Leave",
+                    "supervisorName": "Supervisor Sarah Connor",
+                    "supervisorBadgeNumber": "SUP-101"
+                }
+                """;
+
+        mockMvc.perform(post("/api/duty-roster/" + saved.getId() + "/reassign")
+                        .header("X-Supervisor-Name", "Supervisor Sarah Connor")
+                        .header("X-Supervisor-Badge", "SUP-101")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(reassignPayload))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.dutyRosterId").value(saved.getId()))
+                .andExpect(jsonPath("$.originalGuardName").value("Officer Tariq Mansoor"))
+                .andExpect(jsonPath("$.originalGuardBadgeNumber").value("GD-201"))
+                .andExpect(jsonPath("$.replacementGuardName").value("Officer Marcus Vance"))
+                .andExpect(jsonPath("$.replacementGuardBadgeNumber").value("Shield #4082"))
+                .andExpect(jsonPath("$.replacementGuardEmail").value("guard@campusguard.edu"))
+                .andExpect(jsonPath("$.reassignmentReason").value("Sudden Medical Illness / Emergency Leave"))
+                .andExpect(jsonPath("$.originalGuardAttendanceStatus").value("EXCUSED_ABSENCE"))
+                .andExpect(jsonPath("$.countsAsNoShow").value(false));
+
+        // 3. Verify duty roster in database is updated with replacement guard and excused absence flags
+        DutyRoster updated = dutyRosterRepository.findById(saved.getId()).orElseThrow();
+        org.junit.jupiter.api.Assertions.assertEquals("Officer Marcus Vance", updated.getGuardName());
+        org.junit.jupiter.api.Assertions.assertEquals("Shield #4082", updated.getGuardBadgeNumber());
+        org.junit.jupiter.api.Assertions.assertEquals("Officer Tariq Mansoor", updated.getOriginalGuardName());
+        org.junit.jupiter.api.Assertions.assertEquals("GD-201", updated.getOriginalGuardBadgeNumber());
+        org.junit.jupiter.api.Assertions.assertEquals("EXCUSED_ABSENCE", updated.getAbsentGuardAttendanceStatus());
+        org.junit.jupiter.api.Assertions.assertFalse(updated.isCountsAsNoShow(), "Reassigned absent guard shift must NOT count as a no-show");
+        org.junit.jupiter.api.Assertions.assertTrue(updated.isReassigned());
+
+        // 4. Verify notification was dispatched to replacement guard
+        var notifications = notificationRepository.findAll();
+        org.junit.jupiter.api.Assertions.assertFalse(notifications.isEmpty());
+        var guardNotif = notifications.stream()
+                .filter(n -> "guard@campusguard.edu".equalsIgnoreCase(n.getRecipientEmail()))
+                .findFirst()
+                .orElseThrow();
+        org.junit.jupiter.api.Assertions.assertTrue(guardNotif.getMessage().contains("Officer Tariq Mansoor"));
+        org.junit.jupiter.api.Assertions.assertTrue(guardNotif.getMessage().contains("Sudden Medical Illness / Emergency Leave"));
+
+        // 5. Verify replacement guard can now view this reassigned shift in their roster
+        mockMvc.perform(get("/api/duty-roster/my-roster")
+                        .header("X-User-Role", "Security Guard")
+                        .header("X-User-Email", "guard@campusguard.edu")
+                        .header("X-Guard-Badge", "Shield #4082"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.todayDuty.postLocation").value("North Gate Checkpoint"))
+                .andExpect(jsonPath("$.todayDuty.guardName").value("Officer Marcus Vance"))
+                .andExpect(jsonPath("$.todayDuty.reassigned").value(true));
+    }
+
+    @Test
+    void reassignmentHistoryAuditTrailIsRetrievable() throws Exception {
+        LocalDate today = LocalDate.now();
+
+        DutyRoster shift = new DutyRoster(
+                "Supervisor Sarah Connor",
+                "Officer David Chen",
+                "Shield #3910",
+                "Library Gate Checkpoint",
+                today,
+                "EVENING",
+                "16:00",
+                "00:00"
+        );
+        shift.setGuardEmail("d.chen@campusguard.edu");
+        DutyRoster saved = dutyRosterRepository.save(shift);
+
+        String reassignPayload = """
+                {
+                    "replacementGuardName": "Officer Marcus Vance",
+                    "replacementGuardBadgeNumber": "Shield #4082",
+                    "replacementGuardEmail": "guard@campusguard.edu",
+                    "reason": "Family Emergency Leave"
+                }
+                """;
+
+        mockMvc.perform(post("/api/duty-roster/" + saved.getId() + "/reassign")
+                        .header("X-Supervisor-Name", "Supervisor Sarah Connor")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(reassignPayload))
+                .andExpect(status().isOk());
+
+        // Query all reassignments
+        mockMvc.perform(get("/api/duty-roster/reassignments"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$", hasSize(1)))
+                .andExpect(jsonPath("$[0].originalGuardName").value("Officer David Chen"))
+                .andExpect(jsonPath("$[0].replacementGuardName").value("Officer Marcus Vance"))
+                .andExpect(jsonPath("$[0].countsAsNoShow").value(false))
+                .andExpect(jsonPath("$[0].originalGuardAttendanceStatus").value("EXCUSED_ABSENCE"));
+
+        // Query reassignments for this specific roster ID
+        mockMvc.perform(get("/api/duty-roster/" + saved.getId() + "/reassignments"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$", hasSize(1)))
+                .andExpect(jsonPath("$[0].reassignmentReason").value("Family Emergency Leave"));
+    }
+
+    @Test
+    void guardsCannotReassignShifts() throws Exception {
+        LocalDate today = LocalDate.now();
+        DutyRoster shift = new DutyRoster("Supervisor Elena", "Guard Alpha", "GD-01", "Gate 1", today, "MORNING", "08:00", "16:00");
+        DutyRoster saved = dutyRosterRepository.save(shift);
+
+        String reassignPayload = """
+                {
+                    "replacementGuardName": "Officer Marcus Vance",
+                    "replacementGuardBadgeNumber": "Shield #4082",
+                    "reason": "Unauthorized Attempt"
+                }
+                """;
+
+        mockMvc.perform(post("/api/duty-roster/" + saved.getId() + "/reassign")
+                        .header("X-User-Role", "Security Guard")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(reassignPayload))
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.error").value(containsString("Access denied")));
     }
 }

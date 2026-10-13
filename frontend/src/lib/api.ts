@@ -40,6 +40,9 @@ export const API_ENDPOINTS = {
     byId: (id: number | string) => `${getApiUrl()}/api/duty-roster/${id}`,
     reliever: (id: number | string) => `${getApiUrl()}/api/duty-roster/${id}/reliever`,
     status: (id: number | string) => `${getApiUrl()}/api/duty-roster/${id}/status`,
+    reassign: (id: number | string) => `${getApiUrl()}/api/duty-roster/${id}/reassign`,
+    reassignments: `${getApiUrl()}/api/duty-roster/reassignments`,
+    reassignmentsByRoster: (id: number | string) => `${getApiUrl()}/api/duty-roster/${id}/reassignments`,
   },
   parking: {
     passes: `${getApiUrl()}/api/parking/passes`,

@@ -36,16 +36,41 @@ interface ShiftRecord {
   hoursNote?: string;
 }
 
+interface ReassignmentRecord {
+  id: number;
+  dutyRosterId: number;
+  dutyDate: string;
+  postLocation: string;
+  shiftType: string;
+  shiftHours: string;
+  originalGuardName: string;
+  originalGuardBadgeNumber: string;
+  originalGuardEmail?: string;
+  originalGuardAttendanceStatus: string;
+  countsAsNoShow: boolean;
+  replacementGuardName: string;
+  replacementGuardBadgeNumber: string;
+  replacementGuardEmail?: string;
+  reassignmentReason: string;
+  supervisorName: string;
+  supervisorBadgeNumber?: string;
+  reassignedAt: string;
+}
+
 export default function SupervisorShiftsPage() {
   const [user, setUser] = useState<AuthUser | null>(null);
   const [shifts, setShifts] = useState<ShiftRecord[]>([]);
+  const [reassignments, setReassignments] = useState<ReassignmentRecord[]>([]);
+  const [activeTab, setActiveTab] = useState<"shifts" | "reassignments">("shifts");
   const [searchQuery, setSearchQuery] = useState("");
   const [sectorFilter, setSectorFilter] = useState("All");
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isReassignModalOpen, setIsReassignModalOpen] = useState(false);
+  const [selectedShiftToReassign, setSelectedShiftToReassign] = useState<ShiftRecord | null>(null);
   const [actionNotice, setActionNotice] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
 
-  // Form State
+  // Form State for New Shift
   const [formOfficerName, setFormOfficerName] = useState("");
   const [formBadgeNumber, setFormBadgeNumber] = useState("");
   const [formGatePost, setFormGatePost] = useState("");
@@ -53,9 +78,17 @@ export default function SupervisorShiftsPage() {
   const [formShiftHours, setFormShiftHours] = useState("14:00 - 22:00");
   const [formRadioChannel, setFormRadioChannel] = useState("Radio Ch 2");
 
+  // Form State for Duty Reassignment
+  const [reassignReplacementName, setReassignReplacementName] = useState("");
+  const [reassignReplacementBadge, setReassignReplacementBadge] = useState("");
+  const [reassignReplacementEmail, setReassignReplacementEmail] = useState("");
+  const [reassignReason, setReassignReason] = useState("Sudden Medical Illness / Emergency Leave");
+  const [reassignNotes, setReassignNotes] = useState("");
+
   useEffect(() => {
     setUser(getStoredAuthUser());
     loadShifts();
+    loadReassignments();
   }, []);
 
   const loadShifts = async () => {
@@ -187,6 +220,68 @@ export default function SupervisorShiftsPage() {
       }
     } catch {
       showNotification(`Shift #${id} escalation triggered.`);
+    }
+  };
+
+  const loadReassignments = async () => {
+    try {
+      const res = await fetch(API_ENDPOINTS.dutyRoster.reassignments);
+      if (res.ok) {
+        const data = await res.json();
+        setReassignments(Array.isArray(data) ? data : []);
+      }
+    } catch {}
+  };
+
+  const handleOpenReassignModal = (shift: ShiftRecord) => {
+    setSelectedShiftToReassign(shift);
+    setReassignReplacementName("");
+    setReassignReplacementBadge("");
+    setReassignReplacementEmail("");
+    setReassignReason("Sudden Medical Illness / Emergency Leave");
+    setReassignNotes("");
+    setIsReassignModalOpen(true);
+  };
+
+  const handleConfirmReassign = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!selectedShiftToReassign) return;
+
+    try {
+      const fullReason = reassignNotes ? `${reassignReason} (${reassignNotes})` : reassignReason;
+      const res = await fetch(API_ENDPOINTS.dutyRoster.reassign(selectedShiftToReassign.id), {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "X-Supervisor-Name": displayName,
+          "X-Supervisor-Badge": displayBadge,
+          "X-User-Role": "Shift Supervisor",
+        },
+        body: JSON.stringify({
+          replacementGuardName: reassignReplacementName,
+          replacementGuardBadgeNumber: reassignReplacementBadge,
+          replacementGuardEmail: reassignReplacementEmail,
+          reason: fullReason,
+          supervisorName: displayName,
+          supervisorBadgeNumber: displayBadge,
+        }),
+      });
+
+      if (res.ok) {
+        showNotification(
+          `Reassigned ${selectedShiftToReassign.gatePost} from Officer ${selectedShiftToReassign.officerName} to Officer ${reassignReplacementName}. Excused absence recorded (no-show: false).`
+        );
+        setIsReassignModalOpen(false);
+        setSelectedShiftToReassign(null);
+        triggerRosterBroadcast();
+        loadShifts();
+        loadReassignments();
+      } else {
+        const err = await res.json().catch(() => null);
+        showNotification(err?.error || err?.message || "Failed to reassign shift.");
+      }
+    } catch {
+      showNotification("Failed to connect to backend server for reassignment.");
     }
   };
 
@@ -461,110 +556,212 @@ export default function SupervisorShiftsPage() {
             </div>
           </div>
 
-          {/* TABLE FILTERS & ROSTER */}
+          {/* TABLE FILTERS, TABS & ROSTER */}
           <div className="bg-white border border-slate-200/90 rounded-2xl p-5 shadow-2xs space-y-4">
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-              <h2 className="text-sm font-bold text-slate-900">
-                Guard Duty Schedule &amp; Reliever Assignment Roster
-              </h2>
-
-              <div className="flex flex-wrap items-center gap-2">
-                <div className="relative">
-                  <Search className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
-                  <input
-                    type="text"
-                    placeholder="Search officer or post..."
-                    value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)}
-                    className="pl-8 pr-3 py-1.5 text-xs bg-slate-50 border border-slate-200 rounded-lg text-slate-800 focus:outline-none focus:ring-1 focus:ring-blue-600"
-                  />
-                </div>
-                <select
-                  value={sectorFilter}
-                  onChange={(e) => setSectorFilter(e.target.value)}
-                  className="px-3 py-1.5 text-xs bg-slate-50 border border-slate-200 rounded-lg text-slate-700 font-semibold"
+            {/* TABS: ACTIVE SHIFTS VS REASSIGNMENT HISTORY */}
+            <div className="flex flex-wrap items-center justify-between gap-4 border-b border-slate-200 pb-3">
+              <div className="flex items-center gap-4">
+                <button
+                  type="button"
+                  onClick={() => setActiveTab("shifts")}
+                  className={`text-xs font-extrabold pb-1 transition border-b-2 cursor-pointer ${
+                    activeTab === "shifts"
+                      ? "text-[#1a44c2] border-[#1a44c2]"
+                      : "text-slate-500 border-transparent hover:text-slate-900"
+                  }`}
                 >
-                  <option value="All">All Sectors</option>
-                  <option value="North">North Quad</option>
-                  <option value="Perimeter">Perimeter</option>
-                  <option value="Library">Library</option>
-                  <option value="East">East Campus</option>
-                </select>
+                  Active Shift Allocations ({shifts.length})
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setActiveTab("reassignments")}
+                  className={`text-xs font-extrabold pb-1 transition border-b-2 cursor-pointer flex items-center gap-1.5 ${
+                    activeTab === "reassignments"
+                      ? "text-[#1a44c2] border-[#1a44c2]"
+                      : "text-slate-500 border-transparent hover:text-slate-900"
+                  }`}
+                >
+                  <ArrowRightLeft className="w-3.5 h-3.5" />
+                  <span>Reassignment History &amp; Excused Absences ({reassignments.length})</span>
+                </button>
               </div>
+
+              {activeTab === "shifts" && (
+                <div className="flex flex-wrap items-center gap-2">
+                  <div className="relative">
+                    <Search className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+                    <input
+                      type="text"
+                      placeholder="Search officer or post..."
+                      value={searchQuery}
+                      onChange={(e) => setSearchQuery(e.target.value)}
+                      className="pl-8 pr-3 py-1.5 text-xs bg-slate-50 border border-slate-200 rounded-lg text-slate-800 focus:outline-none focus:ring-1 focus:ring-blue-600"
+                    />
+                  </div>
+                  <select
+                    value={sectorFilter}
+                    onChange={(e) => setSectorFilter(e.target.value)}
+                    className="px-3 py-1.5 text-xs bg-slate-50 border border-slate-200 rounded-lg text-slate-700 font-semibold"
+                  >
+                    <option value="All">All Sectors</option>
+                    <option value="North">North Quad</option>
+                    <option value="Perimeter">Perimeter</option>
+                    <option value="Library">Library</option>
+                    <option value="East">East Campus</option>
+                  </select>
+                </div>
+              )}
             </div>
 
-            <div className="overflow-x-auto">
-              <table className="w-full text-left text-xs border-collapse">
-                <thead>
-                  <tr className="border-b border-slate-200 text-[11px] font-bold text-slate-400 uppercase tracking-wider bg-slate-50/50">
-                    <th className="py-3 px-3">Guard Officer</th>
-                    <th className="py-3 px-3">Post &amp; Sector</th>
-                    <th className="py-3 px-3">Hours</th>
-                    <th className="py-3 px-3">Status</th>
-                    <th className="py-3 px-3 text-right">Actions</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-100 font-medium">
-                  {filteredRoster.length > 0 ? (
-                    filteredRoster.map((s) => (
-                      <tr key={s.id} className="hover:bg-slate-50/60 transition">
-                        <td className="py-3 px-3">
-                          <div className="flex items-center gap-2.5">
-                            <div className="w-8 h-8 rounded-lg bg-blue-100 text-blue-700 font-bold text-xs flex items-center justify-center">
-                              {s.officerName ? s.officerName.slice(0, 2).toUpperCase() : "OF"}
+            {activeTab === "reassignments" ? (
+              /* REASSIGNMENT HISTORY TABLE WITH ORIGINAL GUARD, REPLACEMENT GUARD & EXCUSED ABSENCE STATUS */
+              <div className="overflow-x-auto">
+                <table className="w-full text-left text-xs border-collapse">
+                  <thead>
+                    <tr className="border-b border-slate-200 text-[11px] font-bold text-slate-400 uppercase tracking-wider bg-slate-50/50">
+                      <th className="py-3 px-3">Date &amp; Post</th>
+                      <th className="py-3 px-3">Original Officer (Absent)</th>
+                      <th className="py-3 px-3">Attendance Impact</th>
+                      <th className="py-3 px-3">Replacement Officer</th>
+                      <th className="py-3 px-3">Reassignment Reason</th>
+                      <th className="py-3 px-3">Authorized By</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100 font-medium">
+                    {reassignments.length > 0 ? (
+                      reassignments.map((r) => (
+                        <tr key={r.id} className="hover:bg-slate-50/60 transition">
+                          <td className="py-3 px-3">
+                            <div className="font-bold text-slate-900">{r.postLocation}</div>
+                            <div className="text-[11px] text-slate-500 font-mono">{r.dutyDate} • {r.shiftHours}</div>
+                          </td>
+                          <td className="py-3 px-3">
+                            <div className="font-bold text-slate-700 line-through decoration-slate-400">{r.originalGuardName}</div>
+                            <div className="text-[11px] text-slate-400 font-mono">#{r.originalGuardBadgeNumber}</div>
+                          </td>
+                          <td className="py-3 px-3">
+                            <span className="px-2.5 py-1 rounded-full text-[10px] font-extrabold bg-emerald-50 text-emerald-800 border border-emerald-300 inline-flex items-center gap-1 shadow-2xs">
+                              <CheckCircle2 className="w-3 h-3 text-emerald-600" />
+                              <span>Excused Absence (Not a No-Show)</span>
+                            </span>
+                          </td>
+                          <td className="py-3 px-3">
+                            <div className="font-bold text-blue-900 flex items-center gap-1">
+                              <ShieldCheck className="w-3.5 h-3.5 text-blue-700 shrink-0" />
+                              <span>{r.replacementGuardName}</span>
                             </div>
-                            <div>
-                              <div className="font-bold text-slate-900">{s.officerName}</div>
-                              <div className="text-[11px] text-slate-500">#{s.badgeNumber} {s.radioChannel ? `• ${s.radioChannel}` : ""}</div>
+                            <div className="text-[11px] text-slate-500 font-mono">#{r.replacementGuardBadgeNumber}</div>
+                          </td>
+                          <td className="py-3 px-3">
+                            <div className="font-semibold text-slate-800">{r.reassignmentReason}</div>
+                            <div className="text-[10px] text-slate-400">
+                              Logged: {new Date(r.reassignedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                             </div>
-                          </div>
-                        </td>
-                        <td className="py-3 px-3">
-                          <div className="font-bold text-slate-800">{s.gatePost}</div>
-                          <div className="text-[11px] text-slate-500">{s.sector}</div>
-                        </td>
-                        <td className="py-3 px-3">
-                          <span className="font-semibold text-slate-700">{s.shiftHours}</span>
-                        </td>
-                        <td className="py-3 px-3">
-                          <span className={`px-2.5 py-1 rounded-full text-[11px] font-bold ${
-                            s.status?.toUpperCase().includes("DUTY") || s.status?.toUpperCase().includes("VERIFIED")
-                              ? "bg-emerald-100 text-emerald-800"
-                              : "bg-amber-100 text-amber-800"
-                          }`}>
-                            ● {s.status}
-                          </span>
-                        </td>
-                        <td className="py-3 px-3 text-right">
-                          <div className="flex items-center justify-end gap-2">
-                            <button
-                              type="button"
-                              onClick={() => handleCheckout(s.id)}
-                              className="px-2.5 py-1 text-slate-700 hover:bg-slate-100 rounded text-xs font-semibold cursor-pointer"
-                            >
-                              Checkout
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => handleEscalate(s.id)}
-                              className="px-2.5 py-1 bg-red-50 text-red-700 hover:bg-red-100 rounded text-xs font-semibold cursor-pointer"
-                            >
-                              Escalate
-                            </button>
-                          </div>
+                          </td>
+                          <td className="py-3 px-3 text-slate-600">
+                            <div className="font-semibold text-slate-800">{r.supervisorName}</div>
+                            {r.supervisorBadgeNumber && (
+                              <div className="text-[10px] text-slate-400 font-mono">#{r.supervisorBadgeNumber}</div>
+                            )}
+                          </td>
+                        </tr>
+                      ))
+                    ) : (
+                      <tr>
+                        <td colSpan={6} className="py-8 text-center text-slate-400 text-xs">
+                          No reassignment records found yet. In the &quot;Active Shift Allocations&quot; tab, click &quot;Reassign&quot; next to an absent guard to reassign them to an available replacement.
                         </td>
                       </tr>
-                    ))
-                  ) : (
-                    <tr>
-                      <td colSpan={5} className="py-6 text-center text-slate-400 text-xs">
-                        No shifts matching query.
-                      </td>
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            ) : (
+              /* ACTIVE SHIFTS TABLE */
+              <div className="overflow-x-auto">
+                <table className="w-full text-left text-xs border-collapse">
+                  <thead>
+                    <tr className="border-b border-slate-200 text-[11px] font-bold text-slate-400 uppercase tracking-wider bg-slate-50/50">
+                      <th className="py-3 px-3">Guard Officer</th>
+                      <th className="py-3 px-3">Post &amp; Sector</th>
+                      <th className="py-3 px-3">Hours</th>
+                      <th className="py-3 px-3">Status</th>
+                      <th className="py-3 px-3 text-right">Actions</th>
                     </tr>
-                  )}
-                </tbody>
-              </table>
-            </div>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100 font-medium">
+                    {filteredRoster.length > 0 ? (
+                      filteredRoster.map((s) => (
+                        <tr key={s.id} className="hover:bg-slate-50/60 transition">
+                          <td className="py-3 px-3">
+                            <div className="flex items-center gap-2.5">
+                              <div className="w-8 h-8 rounded-lg bg-blue-100 text-blue-700 font-bold text-xs flex items-center justify-center">
+                                {s.officerName ? s.officerName.slice(0, 2).toUpperCase() : "OF"}
+                              </div>
+                              <div>
+                                <div className="font-bold text-slate-900">{s.officerName}</div>
+                                <div className="text-[11px] text-slate-500">#{s.badgeNumber} {s.radioChannel ? `• ${s.radioChannel}` : ""}</div>
+                              </div>
+                            </div>
+                          </td>
+                          <td className="py-3 px-3">
+                            <div className="font-bold text-slate-800">{s.gatePost}</div>
+                            <div className="text-[11px] text-slate-500">{s.sector}</div>
+                          </td>
+                          <td className="py-3 px-3">
+                            <span className="font-semibold text-slate-700">{s.shiftHours}</span>
+                          </td>
+                          <td className="py-3 px-3">
+                            <span className={`px-2.5 py-1 rounded-full text-[11px] font-bold ${
+                              s.status?.toUpperCase().includes("DUTY") || s.status?.toUpperCase().includes("VERIFIED")
+                                ? "bg-emerald-100 text-emerald-800"
+                                : s.status?.toUpperCase().includes("REASSIGN")
+                                ? "bg-blue-100 text-blue-800"
+                                : "bg-amber-100 text-amber-800"
+                            }`}>
+                              ● {s.status}
+                            </span>
+                          </td>
+                          <td className="py-3 px-3 text-right">
+                            <div className="flex items-center justify-end gap-2">
+                              <button
+                                type="button"
+                                onClick={() => handleOpenReassignModal(s)}
+                                title="Reassign Absent Guard to Replacement"
+                                className="px-2.5 py-1 bg-amber-50 hover:bg-amber-100 text-amber-800 border border-amber-300 rounded text-xs font-bold cursor-pointer flex items-center gap-1 shadow-2xs transition"
+                              >
+                                <ArrowRightLeft className="w-3 h-3 text-amber-700" />
+                                <span>Reassign</span>
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => handleCheckout(s.id)}
+                                className="px-2.5 py-1 text-slate-700 hover:bg-slate-100 rounded text-xs font-semibold cursor-pointer"
+                              >
+                                Checkout
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => handleEscalate(s.id)}
+                                className="px-2.5 py-1 bg-red-50 text-red-700 hover:bg-red-100 rounded text-xs font-semibold cursor-pointer"
+                              >
+                                Escalate
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      ))
+                    ) : (
+                      <tr>
+                        <td colSpan={5} className="py-6 text-center text-slate-400 text-xs">
+                          No shifts matching query.
+                        </td>
+                      </tr>
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            )}
           </div>
 
           {/* SCHEDULE NEW SHIFT MODAL */}
@@ -663,6 +860,137 @@ export default function SupervisorShiftsPage() {
                       className="px-4 py-2 bg-[#1a44c2] hover:bg-[#1538a6] text-white font-bold rounded-lg"
                     >
                       Save &amp; Dispatch
+                    </button>
+                  </div>
+                </form>
+              </div>
+            </div>
+          )}
+
+          {/* REASSIGN ABSENT GUARD SHIFT MODAL */}
+          {isReassignModalOpen && selectedShiftToReassign && (
+            <div className="fixed inset-0 z-50 bg-black/40 backdrop-blur-xs flex items-center justify-center p-4">
+              <div className="bg-white rounded-2xl max-w-lg w-full p-6 shadow-xl space-y-4">
+                <div className="flex items-center justify-between border-b pb-3">
+                  <div className="flex items-center gap-2.5">
+                    <div className="w-8 h-8 rounded-lg bg-amber-100 text-amber-800 flex items-center justify-center font-bold">
+                      <ArrowRightLeft className="w-4 h-4" />
+                    </div>
+                    <div>
+                      <h3 className="font-extrabold text-base text-slate-900">Reassign Absent Guard Duty</h3>
+                      <p className="text-[11px] text-slate-500">Assign an available replacement officer &amp; log excused absence</p>
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setIsReassignModalOpen(false)}
+                    className="text-slate-400 hover:text-slate-700 cursor-pointer"
+                  >
+                    <X className="w-5 h-5" />
+                  </button>
+                </div>
+
+                <form onSubmit={handleConfirmReassign} className="space-y-3.5 text-xs">
+                  {/* Current Absent Guard Info Card */}
+                  <div className="p-3 bg-amber-50/70 border border-amber-200/80 rounded-xl space-y-1">
+                    <div className="text-[10px] font-bold uppercase tracking-wider text-amber-800 flex items-center gap-1">
+                      <AlertTriangle className="w-3.5 h-3.5 text-amber-600" />
+                      <span>Current Absent Officer</span>
+                    </div>
+                    <div className="flex items-baseline justify-between">
+                      <div className="font-bold text-slate-900 text-sm">{selectedShiftToReassign.officerName}</div>
+                      <div className="text-[11px] font-mono text-slate-600 font-semibold">#{selectedShiftToReassign.badgeNumber}</div>
+                    </div>
+                    <div className="text-[11px] text-slate-600">
+                      Post: <span className="font-semibold text-slate-900">{selectedShiftToReassign.gatePost}</span> • Hours: <span className="font-semibold text-slate-900">{selectedShiftToReassign.shiftHours}</span>
+                    </div>
+                  </div>
+
+                  {/* Excused Absence Notice: Guarantees no-show protection */}
+                  <div className="p-3 bg-emerald-50 border border-emerald-200 rounded-xl flex items-start gap-2 text-emerald-900">
+                    <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0 mt-0.5" />
+                    <div className="text-[11px] leading-relaxed">
+                      <span className="font-bold">Excused Absence Protection: </span>
+                      This shift replacement is officially designated as an excused absence and will <span className="font-extrabold underline">NOT</span> count as an unexcused no-show for Officer {selectedShiftToReassign.officerName}.
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="font-bold text-slate-700 block mb-1">Available Replacement Officer Name *</label>
+                    <input
+                      type="text"
+                      required
+                      placeholder="e.g. Officer Marcus Vance"
+                      value={reassignReplacementName}
+                      onChange={(e) => setReassignReplacementName(e.target.value)}
+                      className="w-full p-2 border border-slate-300 rounded-lg text-slate-800 focus:outline-none focus:ring-1 focus:ring-blue-600"
+                    />
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-2">
+                    <div>
+                      <label className="font-bold text-slate-700 block mb-1">Replacement Badge # *</label>
+                      <input
+                        type="text"
+                        required
+                        placeholder="e.g. Shield #4082"
+                        value={reassignReplacementBadge}
+                        onChange={(e) => setReassignReplacementBadge(e.target.value)}
+                        className="w-full p-2 border border-slate-300 rounded-lg font-mono text-slate-800 focus:outline-none focus:ring-1 focus:ring-blue-600"
+                      />
+                    </div>
+                    <div>
+                      <label className="font-bold text-slate-700 block mb-1">Notification Email</label>
+                      <input
+                        type="email"
+                        placeholder="guard@campusguard.edu"
+                        value={reassignReplacementEmail}
+                        onChange={(e) => setReassignReplacementEmail(e.target.value)}
+                        className="w-full p-2 border border-slate-300 rounded-lg text-slate-800 focus:outline-none focus:ring-1 focus:ring-blue-600"
+                      />
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="font-bold text-slate-700 block mb-1">Absence &amp; Reassignment Reason *</label>
+                    <select
+                      value={reassignReason}
+                      onChange={(e) => setReassignReason(e.target.value)}
+                      className="w-full p-2 border border-slate-300 rounded-lg text-slate-800 font-semibold focus:outline-none focus:ring-1 focus:ring-blue-600"
+                    >
+                      <option>Sudden Medical Illness / Emergency Leave</option>
+                      <option>Approved Personal Emergency Absence</option>
+                      <option>Family Emergency Leave</option>
+                      <option>Approved Bereavement Leave</option>
+                      <option>Administrative Relief / Tactical Redeployment</option>
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="font-bold text-slate-700 block mb-1">Additional Operational Notes (Optional)</label>
+                    <input
+                      type="text"
+                      placeholder="e.g. Relief authorized via phone call with Shift Commander"
+                      value={reassignNotes}
+                      onChange={(e) => setReassignNotes(e.target.value)}
+                      className="w-full p-2 border border-slate-300 rounded-lg text-slate-800 focus:outline-none focus:ring-1 focus:ring-blue-600"
+                    />
+                  </div>
+
+                  <div className="flex justify-end gap-2 pt-3 border-t border-slate-100">
+                    <button
+                      type="button"
+                      onClick={() => setIsReassignModalOpen(false)}
+                      className="px-3.5 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold rounded-lg cursor-pointer"
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      type="submit"
+                      className="px-4 py-2 bg-[#1a44c2] hover:bg-[#1538a6] text-white font-bold rounded-lg cursor-pointer flex items-center gap-1.5 shadow-xs"
+                    >
+                      <ArrowRightLeft className="w-3.5 h-3.5" />
+                      <span>Confirm &amp; Notify Replacement</span>
                     </button>
                   </div>
                 </form>

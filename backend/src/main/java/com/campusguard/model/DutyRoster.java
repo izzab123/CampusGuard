@@ -69,6 +69,16 @@ public class DutyRoster {
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
 
+    // Reassignment & Excused Absence Tracking
+    private boolean isReassigned = false;
+    private String originalGuardName;
+    private String originalGuardBadgeNumber;
+    private String originalGuardEmail;
+    private String reassignmentReason;
+    private LocalDateTime reassignedAt;
+    private String absentGuardAttendanceStatus; // "EXCUSED_ABSENCE"
+    private boolean countsAsNoShow = false;
+
     public DutyRoster() {
         this.status = "SCHEDULED";
         this.priority = "NORMAL";
@@ -263,4 +273,28 @@ public class DutyRoster {
     public String getLocation() {
         return this.postLocation;
     }
+
+    public boolean isReassigned() { return isReassigned; }
+    public void setReassigned(boolean reassigned) { isReassigned = reassigned; }
+
+    public String getOriginalGuardName() { return originalGuardName; }
+    public void setOriginalGuardName(String originalGuardName) { this.originalGuardName = originalGuardName; }
+
+    public String getOriginalGuardBadgeNumber() { return originalGuardBadgeNumber; }
+    public void setOriginalGuardBadgeNumber(String originalGuardBadgeNumber) { this.originalGuardBadgeNumber = originalGuardBadgeNumber; }
+
+    public String getOriginalGuardEmail() { return originalGuardEmail; }
+    public void setOriginalGuardEmail(String originalGuardEmail) { this.originalGuardEmail = originalGuardEmail; }
+
+    public String getReassignmentReason() { return reassignmentReason; }
+    public void setReassignmentReason(String reassignmentReason) { this.reassignmentReason = reassignmentReason; }
+
+    public LocalDateTime getReassignedAt() { return reassignedAt; }
+    public void setReassignedAt(LocalDateTime reassignedAt) { this.reassignedAt = reassignedAt; }
+
+    public String getAbsentGuardAttendanceStatus() { return absentGuardAttendanceStatus; }
+    public void setAbsentGuardAttendanceStatus(String absentGuardAttendanceStatus) { this.absentGuardAttendanceStatus = absentGuardAttendanceStatus; }
+
+    public boolean isCountsAsNoShow() { return countsAsNoShow; }
+    public void setCountsAsNoShow(boolean countsAsNoShow) { this.countsAsNoShow = countsAsNoShow; }
 }
