@@ -20,7 +20,12 @@ public class ShiftLog {
     @Column(nullable = false)
     private String postLocation; // e.g., North Gate, Residence Quad, Science Hub
 
-    private String status; // ON_DUTY, COMPLETED, NO_SHOW, ESCALATED
+    private String gatePost;
+    private String sector;
+    private String shiftHours;
+    private String radioChannel;
+
+    private String status; // ON_DUTY, COMPLETED, NO_SHOW, ESCALATED, SCHEDULED
 
     private boolean biometricVerified;
 
@@ -40,8 +45,17 @@ public class ShiftLog {
         this.officerName = officerName;
         this.badgeNumber = badgeNumber;
         this.postLocation = postLocation;
+        this.gatePost = postLocation;
         this.biometricVerified = biometricVerified;
         this.notes = notes;
+    }
+
+    public ShiftLog(String officerName, String badgeNumber, String postLocation, String gatePost, String sector, String shiftHours, String radioChannel, boolean biometricVerified, String notes) {
+        this(officerName, badgeNumber, postLocation != null ? postLocation : gatePost, biometricVerified, notes);
+        this.gatePost = gatePost != null ? gatePost : postLocation;
+        this.sector = sector;
+        this.shiftHours = shiftHours;
+        this.radioChannel = radioChannel;
     }
 
     // Getters and Setters
@@ -54,8 +68,30 @@ public class ShiftLog {
     public String getBadgeNumber() { return badgeNumber; }
     public void setBadgeNumber(String badgeNumber) { this.badgeNumber = badgeNumber; }
 
-    public String getPostLocation() { return postLocation; }
-    public void setPostLocation(String postLocation) { this.postLocation = postLocation; }
+    public String getPostLocation() {
+        return postLocation != null ? postLocation : gatePost;
+    }
+    public void setPostLocation(String postLocation) {
+        this.postLocation = postLocation;
+        if (this.gatePost == null) this.gatePost = postLocation;
+    }
+
+    public String getGatePost() {
+        return gatePost != null ? gatePost : postLocation;
+    }
+    public void setGatePost(String gatePost) {
+        this.gatePost = gatePost;
+        if (this.postLocation == null) this.postLocation = gatePost;
+    }
+
+    public String getSector() { return sector; }
+    public void setSector(String sector) { this.sector = sector; }
+
+    public String getShiftHours() { return shiftHours; }
+    public void setShiftHours(String shiftHours) { this.shiftHours = shiftHours; }
+
+    public String getRadioChannel() { return radioChannel; }
+    public void setRadioChannel(String radioChannel) { this.radioChannel = radioChannel; }
 
     public String getStatus() { return status; }
     public void setStatus(String status) { this.status = status; }
@@ -72,3 +108,4 @@ public class ShiftLog {
     public String getNotes() { return notes; }
     public void setNotes(String notes) { this.notes = notes; }
 }
+

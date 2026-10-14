@@ -51,6 +51,7 @@ export default function ShiftSupervisorDashboard() {
   const [user, setUser] = useState<AuthUser | null>(null);
   const [shifts, setShifts] = useState<ShiftItem[]>([]);
   const [incidents, setIncidents] = useState<IncidentItem[]>([]);
+  const [supervisorNotifs, setSupervisorNotifs] = useState<any[]>([]);
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState("All");
   const [sectorFilter, setSectorFilter] = useState("All");
@@ -65,9 +66,10 @@ export default function ShiftSupervisorDashboard() {
   const loadData = async () => {
     setIsLoading(true);
     try {
-      const [shiftsRes, incRes] = await Promise.all([
+      const [shiftsRes, incRes, notifsRes] = await Promise.all([
         fetch(API_ENDPOINTS.shifts.list),
         fetch(API_ENDPOINTS.incidents.list),
+        fetch(API_ENDPOINTS.notifications.list("Shift Supervisor")),
       ]);
 
       if (shiftsRes.ok) {
@@ -77,6 +79,10 @@ export default function ShiftSupervisorDashboard() {
       if (incRes.ok) {
         const incData = await incRes.json();
         setIncidents(Array.isArray(incData) ? incData : []);
+      }
+      if (notifsRes.ok) {
+        const notifsData = await notifsRes.json();
+        setSupervisorNotifs(Array.isArray(notifsData) ? notifsData : []);
       }
     } catch {
       // ignore
@@ -167,6 +173,12 @@ export default function ShiftSupervisorDashboard() {
       (i.severity?.toUpperCase() === "CRITICAL" || i.severity?.toUpperCase() === "HIGH") &&
       i.status?.toUpperCase() !== "RESOLVED"
   );
+  const unreadNotifsCount = supervisorNotifs.filter(
+    (n) => !(n.isRead ?? n.read ?? false)
+  ).length;
+  const guardAbsencesCount = supervisorNotifs.filter(
+    (n) => n.guardName || n.category?.toUpperCase() === "DUTY_ABSENCE"
+  ).length;
 
   const filteredShifts = shifts.filter((s) => {
     const term = searchTerm.toLowerCase();
@@ -260,9 +272,9 @@ export default function ShiftSupervisorDashboard() {
               <div className="w-9 h-9 rounded-full bg-slate-100 hover:bg-slate-200 flex items-center justify-center text-slate-600 transition">
                 <Bell className="w-4 h-4" />
               </div>
-              {urgentIncidents.length > 0 && (
-                <span className="absolute top-1 right-1 w-4 h-4 rounded-full bg-red-600 text-white text-[10px] font-bold flex items-center justify-center border-2 border-white">
-                  {urgentIncidents.length}
+              {unreadNotifsCount > 0 && (
+                <span className="absolute top-1 right-1 w-4 h-4 rounded-full bg-red-600 text-white text-[10px] font-bold flex items-center justify-center border-2 border-white animate-pulse">
+                  {unreadNotifsCount}
                 </span>
               )}
             </Link>
@@ -440,25 +452,33 @@ export default function ShiftSupervisorDashboard() {
               </div>
             </div>
 
-            {/* Card 3: Open no-show alerts */}
-            <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-xs space-y-2">
+            {/* Card 3: Open no-show & absence alerts */}
+            <Link
+              href="/dashboard/supervisor/notifications"
+              className="bg-white border border-slate-200 rounded-2xl p-5 shadow-xs space-y-2 hover:border-red-300 transition cursor-pointer block"
+            >
               <div className="flex items-center justify-between text-xs">
-                <span className="text-slate-500 font-medium">Open incident alerts</span>
+                <span className="text-slate-500 font-medium">Unstaffed Post &amp; Absence Alerts</span>
                 <div className="w-7 h-7 rounded-lg bg-red-50 text-red-600 flex items-center justify-center">
                   <Bell className="w-4 h-4" />
                 </div>
               </div>
               <div className="flex items-baseline gap-2">
-                <span className="text-3xl font-extrabold text-red-600 leading-none">{urgentIncidents.length}</span>
-                <span className="text-xs font-bold text-red-700">Active</span>
+                <span className="text-3xl font-extrabold text-red-600 leading-none">
+                  {guardAbsencesCount || urgentIncidents.length}
+                </span>
+                <span className="text-xs font-bold text-red-700">● Live Dispatch Alerts</span>
               </div>
               <p className="text-[11px] text-slate-500">
-                Live reports in backend repository
+                {unreadNotifsCount} unread alert(s) in supervisor feed
               </p>
               <div className="w-full h-1.5 bg-slate-100 rounded-full overflow-hidden">
-                <div className="h-full bg-red-600 rounded-full" style={{ width: urgentIncidents.length > 0 ? "80%" : "10%" }}></div>
+                <div
+                  className="h-full bg-red-600 rounded-full"
+                  style={{ width: guardAbsencesCount > 0 ? "85%" : "15%" }}
+                ></div>
               </div>
-            </div>
+            </Link>
 
             {/* Card 4: ANPR Gate Checkpoints */}
             <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-xs space-y-2">

@@ -124,7 +124,7 @@ export default function SupervisorShiftsPage() {
     try {
       const res = await fetch(API_ENDPOINTS.shifts.escalate(id), { method: "POST" });
       if (res.ok) {
-        showNotification(`Shift #${id} flagged as ESCALATED in dispatch console.`);
+        showNotification(`Shift #${id} flagged as ESCALATED. Urgent guard absence alert dispatched to Supervisor Notifications.`);
         loadShifts();
       }
     } catch {
