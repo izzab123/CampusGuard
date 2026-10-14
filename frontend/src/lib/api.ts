@@ -34,6 +34,12 @@ export const API_ENDPOINTS = {
     reportAbsence: (id: number | string, reason?: string) => `${getApiUrl()}/api/shifts/${id}/report-absence${reason ? `?reason=${encodeURIComponent(reason)}` : ""}`,
     checkAbsences: `${getApiUrl()}/api/shifts/check-absences`,
   },
+  handoffs: {
+    base: `${getApiUrl()}/api/handoffs`,
+    list: `${getApiUrl()}/api/handoffs`,
+    latest: `${getApiUrl()}/api/handoffs/latest`,
+    byId: (id: number | string) => `${getApiUrl()}/api/handoffs/${id}`,
+  },
   dutyRoster: {
     base: `${getApiUrl()}/api/duty-roster`,
     list: `${getApiUrl()}/api/duty-roster`,

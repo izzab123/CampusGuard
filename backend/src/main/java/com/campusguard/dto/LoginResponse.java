@@ -10,6 +10,7 @@ public class LoginResponse {
     private String fullName;
     private String badgeNumber;
     private String department;
+    private Long userId;
 
     public LoginResponse() {}
 
@@ -24,6 +25,11 @@ public class LoginResponse {
         this.department = department;
     }
 
+    public LoginResponse(boolean success, String message, String token, String email, String role, String fullName, String badgeNumber, String department, Long userId) {
+        this(success, message, token, email, role, fullName, badgeNumber, department);
+        this.userId = userId;
+    }
+
     public static LoginResponse failure(String message) {
         LoginResponse res = new LoginResponse();
         res.setSuccess(false);
@@ -33,6 +39,10 @@ public class LoginResponse {
 
     public static LoginResponse success(String token, String email, String role, String fullName, String badgeNumber, String department) {
         return new LoginResponse(true, "Authentication successful", token, email, role, fullName, badgeNumber, department);
+    }
+
+    public static LoginResponse success(String token, String email, String role, String fullName, String badgeNumber, String department, Long userId) {
+        return new LoginResponse(true, "Authentication successful", token, email, role, fullName, badgeNumber, department, userId);
     }
 
     public boolean isSuccess() {
@@ -97,5 +107,13 @@ public class LoginResponse {
 
     public void setDepartment(String department) {
         this.department = department;
+    }
+
+    public Long getUserId() {
+        return userId;
+    }
+
+    public void setUserId(Long userId) {
+        this.userId = userId;
     }
 }
