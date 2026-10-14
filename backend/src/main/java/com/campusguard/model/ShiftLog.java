@@ -58,6 +58,28 @@ public class ShiftLog {
         this.radioChannel = radioChannel;
     }
 
+    @PrePersist
+    public void onPrePersist() {
+        if (this.postLocation == null || this.postLocation.isBlank()) {
+            this.postLocation = (this.gatePost != null && !this.gatePost.isBlank()) ? this.gatePost : "General Campus Checkpoint";
+        }
+        if (this.gatePost == null || this.gatePost.isBlank()) {
+            this.gatePost = this.postLocation;
+        }
+        if (this.officerName == null || this.officerName.isBlank()) {
+            this.officerName = "Duty Officer";
+        }
+        if (this.badgeNumber == null || this.badgeNumber.isBlank()) {
+            this.badgeNumber = "SEC-001";
+        }
+        if (this.shiftStart == null) {
+            this.shiftStart = LocalDateTime.now();
+        }
+        if (this.status == null || this.status.isBlank()) {
+            this.status = "ON_DUTY";
+        }
+    }
+
     // Getters and Setters
     public Long getId() { return id; }
     public void setId(Long id) { this.id = id; }
@@ -68,20 +90,24 @@ public class ShiftLog {
     public String getBadgeNumber() { return badgeNumber; }
     public void setBadgeNumber(String badgeNumber) { this.badgeNumber = badgeNumber; }
 
-    public String getPostLocation() {
-        return postLocation != null ? postLocation : gatePost;
+    public String getPostLocation() { 
+        return (postLocation != null && !postLocation.isBlank()) ? postLocation : gatePost; 
     }
-    public void setPostLocation(String postLocation) {
+    public void setPostLocation(String postLocation) { 
         this.postLocation = postLocation;
-        if (this.gatePost == null) this.gatePost = postLocation;
+        if (this.gatePost == null || this.gatePost.isBlank()) {
+            this.gatePost = postLocation;
+        }
     }
 
-    public String getGatePost() {
-        return gatePost != null ? gatePost : postLocation;
+    public String getGatePost() { 
+        return (gatePost != null && !gatePost.isBlank()) ? gatePost : postLocation; 
     }
-    public void setGatePost(String gatePost) {
+    public void setGatePost(String gatePost) { 
         this.gatePost = gatePost;
-        if (this.postLocation == null) this.postLocation = gatePost;
+        if (this.postLocation == null || this.postLocation.isBlank()) {
+            this.postLocation = gatePost;
+        }
     }
 
     public String getSector() { return sector; }
@@ -108,4 +134,5 @@ public class ShiftLog {
     public String getNotes() { return notes; }
     public void setNotes(String notes) { this.notes = notes; }
 }
+
 

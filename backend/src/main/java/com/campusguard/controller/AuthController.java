@@ -304,17 +304,23 @@ public class AuthController {
             return ResponseEntity.badRequest().body(Map.of("error", "Email is required"));
         }
         return userRepository.findByEmailIgnoreCase(email.trim()).map(u -> {
-            if (body.containsKey("fullName")) u.setFullName(body.get("fullName"));
+            String nameVal = body.containsKey("fullName") ? body.get("fullName") : body.get("name");
+            if (nameVal != null && !nameVal.isBlank()) {
+                u.setFullName(nameVal);
+            }
             if (body.containsKey("department")) u.setDepartment(body.get("department"));
             if (body.containsKey("badgeNumber")) u.setBadgeNumber(body.get("badgeNumber"));
+            if (body.containsKey("phoneNumber")) u.setPhoneNumber(body.get("phoneNumber"));
             userRepository.save(u);
-            return ResponseEntity.ok(Map.of(
-                    "success", true,
-                    "email", u.getEmail(),
-                    "fullName", u.getFullName(),
-                    "department", u.getDepartment(),
-                    "badgeNumber", u.getBadgeNumber()
-            ));
+            java.util.Map<String, Object> resp = new java.util.HashMap<>();
+            resp.put("success", true);
+            resp.put("email", u.getEmail());
+            resp.put("fullName", u.getFullName());
+            resp.put("name", u.getFullName());
+            resp.put("department", u.getDepartment() != null ? u.getDepartment() : "");
+            resp.put("badgeNumber", u.getBadgeNumber() != null ? u.getBadgeNumber() : "");
+            resp.put("phoneNumber", u.getPhoneNumber() != null ? u.getPhoneNumber() : "");
+            return ResponseEntity.ok(resp);
         }).orElse(ResponseEntity.notFound().build());
     }
 }

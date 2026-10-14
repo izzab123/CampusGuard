@@ -49,6 +49,28 @@ public class IncidentReport {
         this.reporterRole = reporterRole;
     }
 
+    @PrePersist
+    public void onPrePersist() {
+        if (this.createdAt == null) {
+            this.createdAt = LocalDateTime.now();
+        }
+        if (this.title == null || this.title.isBlank()) {
+            this.title = "Incident Report";
+        }
+        if (this.severity == null || this.severity.isBlank()) {
+            this.severity = "MEDIUM";
+        }
+        if (this.status == null || this.status.isBlank()) {
+            this.status = "IN_TRIAGE";
+        }
+        if (this.description == null) {
+            this.description = "";
+        }
+        if (this.location == null || this.location.isBlank()) {
+            this.location = "Campus Grounds";
+        }
+    }
+
     // Getters and Setters
     public Long getId() { return id; }
     public void setId(Long id) { this.id = id; }

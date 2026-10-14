@@ -87,13 +87,17 @@ export default function SupervisorLogbookPage() {
     if (!detailsText.trim()) return;
 
     try {
+      const actorName = user?.fullName || user?.name || "Supervisor Elena Rostova";
       const res = await fetch(API_ENDPOINTS.auditLogs.create, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           action: actionText,
           details: detailsText,
+          actor: actorName,
           actorEmail: user?.email || "supervisor@campusguard.edu",
+          role: "Shift Supervisor",
+          severity: "INFO",
         }),
       });
 
@@ -102,9 +106,12 @@ export default function SupervisorLogbookPage() {
         setIsAddOpen(false);
         setDetailsText("");
         loadLogs();
+      } else {
+        const err = await res.json().catch(() => null);
+        showNotification(err?.message || "Failed to add logbook entry.");
       }
     } catch {
-      showNotification("Failed to add entry.");
+      showNotification("Failed to add entry. Verify connection.");
     }
   };
 
@@ -479,7 +486,7 @@ export default function SupervisorLogbookPage() {
                       type="submit"
                       className="px-4 py-2 bg-[#1a44c2] hover:bg-[#1538a6] text-white font-bold rounded-lg"
                     >
-                      Commit Entry
+                      Save &amp; Commit Entry
                     </button>
                   </div>
                 </form>

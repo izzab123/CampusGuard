@@ -18,10 +18,14 @@ public class ShiftController {
 
     private final ShiftLogRepository shiftRepo;
     private final NotificationRepository notificationRepo;
+    private final com.campusguard.service.DutyRosterService dutyRosterService;
 
-    public ShiftController(ShiftLogRepository shiftRepo, NotificationRepository notificationRepo) {
+    public ShiftController(ShiftLogRepository shiftRepo,
+                           NotificationRepository notificationRepo,
+                           com.campusguard.service.DutyRosterService dutyRosterService) {
         this.shiftRepo = shiftRepo;
         this.notificationRepo = notificationRepo;
+        this.dutyRosterService = dutyRosterService;
     }
 
     @GetMapping
@@ -31,11 +35,27 @@ public class ShiftController {
 
     @PostMapping
     public ResponseEntity<ShiftLog> scheduleShift(@RequestBody ShiftLog shift) {
+        if (shift.getPostLocation() == null || shift.getPostLocation().isBlank()) {
+            if (shift.getGatePost() != null && !shift.getGatePost().isBlank()) {
+                shift.setPostLocation(shift.getGatePost());
+            } else {
+                shift.setPostLocation("General Campus Checkpoint");
+            }
+        }
+        if (shift.getGatePost() == null || shift.getGatePost().isBlank()) {
+            shift.setGatePost(shift.getPostLocation());
+        }
+        if (shift.getOfficerName() == null || shift.getOfficerName().isBlank()) {
+            shift.setOfficerName("Security Officer");
+        }
+        if (shift.getBadgeNumber() == null || shift.getBadgeNumber().isBlank()) {
+            shift.setBadgeNumber("SEC-001");
+        }
         if (shift.getShiftStart() == null) {
             shift.setShiftStart(LocalDateTime.now());
         }
         if (shift.getStatus() == null || shift.getStatus().isBlank()) {
-            shift.setStatus("SCHEDULED");
+            shift.setStatus("ON_DUTY");
         }
         if (shift.getGatePost() != null && shift.getPostLocation() == null) {
             shift.setPostLocation(shift.getGatePost());
@@ -43,11 +63,42 @@ public class ShiftController {
             shift.setGatePost(shift.getPostLocation());
         }
         ShiftLog saved = shiftRepo.save(shift);
+
+        // Also synchronize to DutyRoster for roster tracking
+        try {
+            com.campusguard.model.DutyRoster roster = new com.campusguard.model.DutyRoster();
+            roster.setGuardName(saved.getOfficerName());
+            roster.setGuardBadgeNumber(saved.getBadgeNumber());
+            roster.setPostLocation(saved.getPostLocation());
+            roster.setSupervisorName("Shift Supervisor");
+            roster.setSupervisorBadgeNumber("SS-104");
+            roster.setDutyDate(java.time.LocalDate.now());
+            roster.setShiftType("CUSTOM");
+            roster.setStatus(saved.getStatus());
+            if (saved.getShiftHours() != null) {
+                roster.setNotes("Hours: " + saved.getShiftHours() + (saved.getSector() != null ? " | Sector: " + saved.getSector() : ""));
+            }
+            dutyRosterService.createShiftSchedule(roster, "Shift Supervisor", "SS-104");
+        } catch (Exception ignored) {}
+
         return new ResponseEntity<>(saved, HttpStatus.CREATED);
     }
 
     @PostMapping("/check-in")
     public ResponseEntity<ShiftLog> checkIn(@RequestBody ShiftLog shift) {
+        if (shift.getPostLocation() == null || shift.getPostLocation().isBlank()) {
+            if (shift.getGatePost() != null && !shift.getGatePost().isBlank()) {
+                shift.setPostLocation(shift.getGatePost());
+            } else {
+                shift.setPostLocation("North Perimeter & Gate 04");
+            }
+        }
+        if (shift.getOfficerName() == null || shift.getOfficerName().isBlank()) {
+            shift.setOfficerName("Officer Marcus Vance");
+        }
+        if (shift.getBadgeNumber() == null || shift.getBadgeNumber().isBlank()) {
+            shift.setBadgeNumber("Shield #4082");
+        }
         shift.setShiftStart(LocalDateTime.now());
         shift.setStatus("ON_DUTY");
         shift.setBiometricVerified(true);
@@ -171,6 +222,32 @@ public class ShiftController {
             }
         }
         return ResponseEntity.ok(createdAlerts);
+    }
+
+    @PostMapping("/schedule")
+    public ResponseEntity<?> scheduleShift(
+            @RequestBody com.campusguard.model.DutyRoster roster,
+            @RequestHeader(value = "X-Supervisor-Name", required = false) String supervisorNameHeader,
+            @RequestHeader(value = "X-Supervisor-Badge", required = false) String supervisorBadgeHeader
+    ) {
+        try {
+            com.campusguard.model.DutyRoster created = dutyRosterService.createShiftSchedule(roster, supervisorNameHeader, supervisorBadgeHeader);
+            return new ResponseEntity<>(created, HttpStatus.CREATED);
+        } catch (IllegalArgumentException ex) {
+            return ResponseEntity.badRequest().body(java.util.Map.of("error", ex.getMessage()));
+        }
+    }
+
+    @GetMapping("/roster")
+    public ResponseEntity<List<com.campusguard.model.DutyRoster>> getDutyRoster(
+            @RequestParam(required = false) @org.springframework.format.annotation.DateTimeFormat(iso = org.springframework.format.annotation.DateTimeFormat.ISO.DATE) java.time.LocalDate date,
+            @RequestParam(required = false) String status,
+            @RequestParam(required = false) String postLocation,
+            @RequestParam(required = false) String supervisor,
+            @RequestParam(required = false) String guard
+    ) {
+        List<com.campusguard.model.DutyRoster> roster = dutyRosterService.searchDutyRoster(date, status, postLocation, supervisor, guard);
+        return ResponseEntity.ok(roster);
     }
 }
 
