@@ -31,7 +31,11 @@ export default function ProctorNotificationsView() {
       const res = await fetch(API_ENDPOINTS.notifications.byRole("Proctor and DSW"));
       if (res.ok) {
         const data = await res.json();
-        setNotifications(data);
+        const normalized = (Array.isArray(data) ? data : []).map((n: any) => ({
+          ...n,
+          isRead: Boolean(n.isRead ?? n.read ?? false),
+        }));
+        setNotifications(normalized);
       }
     } catch {}
   };

@@ -138,6 +138,10 @@ public class UserDataSeeder {
                         "Officer Marcus Vance",
                         "Shield #4082",
                         "North Perimeter & Main Gate",
+                        "Gate 01 Main Entry",
+                        "North Academic Quad",
+                        "06:00 - 14:00",
+                        "Radio Ch 1",
                         true,
                         "Radio check cleared. Barrier automation operational."
                 );
@@ -148,6 +152,10 @@ public class UserDataSeeder {
                         "Officer Sarah Jenkins",
                         "Shield #4120",
                         "West Quad Residence & Library Patrol",
+                        "West Library Portico",
+                        "West Quad",
+                        "08:00 - 16:00",
+                        "Radio Ch 3",
                         true,
                         "Conducting foot patrol across residence walkways."
                 );
@@ -158,11 +166,15 @@ public class UserDataSeeder {
                         "Officer David Chen",
                         "Shield #3910",
                         "South Perimeter Inspection Station",
+                        "Gate 03 South Station",
+                        "South Perimeter",
+                        "14:00 - 22:00",
+                        "Radio Ch 2",
                         false,
                         "Shift handover pending biometric swipe."
                 );
-                s3.setStatus("SCHEDULED");
-                s3.setShiftStart(LocalDateTime.now().plusHours(1));
+                s3.setStatus("NO_SHOW");
+                s3.setShiftStart(LocalDateTime.now().minusMinutes(30));
 
                 shiftRepo.saveAll(List.of(s1, s2, s3));
                 logger.info("Seeded initial shift logs.");
@@ -241,6 +253,50 @@ public class UserDataSeeder {
                 notificationRepo.saveAll(List.of(n1, n2, n3, n4));
                 logger.info("Seeded initial notifications.");
             }
+
+            // Ensure Supervisor Guard Absence & Duty Notifications exist for live supervisor dashboard
+            boolean hasSupervisorAbsence = notificationRepo.findAll().stream().anyMatch(n ->
+                "Shift Supervisor".equalsIgnoreCase(n.getRecipientRole()) && "DUTY_ABSENCE".equalsIgnoreCase(n.getCategory())
+            );
+            if (!hasSupervisorAbsence) {
+                Notification supAlert1 = new Notification(
+                        "Shift Supervisor",
+                        "supervisor@campusguard.edu",
+                        "Guard Absence Alert: Officer David Chen Unreported",
+                        "Officer David Chen (Shield #3910) failed to report on time for assigned watch duty at South Perimeter Inspection Station - Gate 03. Station has been unstaffed for 30 minutes with zero biometric check-in recorded. Protocol requires immediate reliever dispatch.",
+                        "DUTY_ABSENCE",
+                        "CRITICAL",
+                        "Officer David Chen",
+                        "Shield #3910",
+                        "South Perimeter Inspection Station - Gate 03",
+                        "14:00 - 22:00 (Evening Watch)",
+                        "NO_SHOW",
+                        3L
+                );
+                supAlert1.setCreatedAt(LocalDateTime.now().minusMinutes(25));
+                supAlert1.setRead(false);
+
+                Notification supAlert2 = new Notification(
+                        "Shift Supervisor",
+                        "supervisor@campusguard.edu",
+                        "Duty Delay Alert: Officer Robert Hayes Attendance Overdue",
+                        "Officer Robert Hayes (Shield #4105) has not reported for morning duty at North Gate Barrier 04. Automated surveillance flagged delay exceeding 15 minutes. Reliever requested from standby squad.",
+                        "DUTY_ABSENCE",
+                        "HIGH",
+                        "Officer Robert Hayes",
+                        "Shield #4105",
+                        "North Gate Barrier 04 - Vehicle Sentry",
+                        "08:00 - 16:00 (Day Shift)",
+                        "OVERDUE",
+                        null
+                );
+                supAlert2.setCreatedAt(LocalDateTime.now().minusHours(1).minusMinutes(12));
+                supAlert2.setRead(false);
+
+                notificationRepo.saveAll(List.of(supAlert1, supAlert2));
+                logger.info("Seeded initial supervisor guard absence notifications.");
+            }
+
 
             logger.info("CampusGuard Database initialization complete.");
         };

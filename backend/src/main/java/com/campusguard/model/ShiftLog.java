@@ -20,7 +20,12 @@ public class ShiftLog {
     @Column(nullable = false)
     private String postLocation; // e.g., North Gate, Residence Quad, Science Hub
 
-    private String status; // ON_DUTY, COMPLETED, NO_SHOW, ESCALATED
+    private String gatePost;
+    private String sector;
+    private String shiftHours;
+    private String radioChannel;
+
+    private String status; // ON_DUTY, COMPLETED, NO_SHOW, ESCALATED, SCHEDULED
 
     private boolean biometricVerified;
 
@@ -28,11 +33,6 @@ public class ShiftLog {
     private LocalDateTime shiftEnd;
 
     private String notes;
-
-    private String gatePost;
-    private String sector;
-    private String shiftHours;
-    private String radioChannel;
 
     public ShiftLog() {
         this.shiftStart = LocalDateTime.now();
@@ -48,6 +48,14 @@ public class ShiftLog {
         this.gatePost = postLocation;
         this.biometricVerified = biometricVerified;
         this.notes = notes;
+    }
+
+    public ShiftLog(String officerName, String badgeNumber, String postLocation, String gatePost, String sector, String shiftHours, String radioChannel, boolean biometricVerified, String notes) {
+        this(officerName, badgeNumber, postLocation != null ? postLocation : gatePost, biometricVerified, notes);
+        this.gatePost = gatePost != null ? gatePost : postLocation;
+        this.sector = sector;
+        this.shiftHours = shiftHours;
+        this.radioChannel = radioChannel;
     }
 
     @PrePersist
@@ -126,3 +134,5 @@ public class ShiftLog {
     public String getNotes() { return notes; }
     public void setNotes(String notes) { this.notes = notes; }
 }
+
+

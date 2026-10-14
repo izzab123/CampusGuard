@@ -31,6 +31,8 @@ export const API_ENDPOINTS = {
     checkIn: `${getApiUrl()}/api/shifts/check-in`,
     checkout: (id: number | string) => `${getApiUrl()}/api/shifts/${id}/checkout`,
     escalate: (id: number | string) => `${getApiUrl()}/api/shifts/${id}/escalate`,
+    reportAbsence: (id: number | string, reason?: string) => `${getApiUrl()}/api/shifts/${id}/report-absence${reason ? `?reason=${encodeURIComponent(reason)}` : ""}`,
+    checkAbsences: `${getApiUrl()}/api/shifts/check-absences`,
   },
   dutyRoster: {
     base: `${getApiUrl()}/api/duty-roster`,
@@ -60,6 +62,10 @@ export const API_ENDPOINTS = {
     byRole: (role: string) => `${getApiUrl()}/api/notifications?role=${encodeURIComponent(role)}`,
     read: (id: number | string) => `${getApiUrl()}/api/notifications/${id}/read`,
     markRead: (id: number | string) => `${getApiUrl()}/api/notifications/${id}/read`,
+    markUnread: (id: number | string) => `${getApiUrl()}/api/notifications/${id}/unread`,
+    toggleRead: (id: number | string) => `${getApiUrl()}/api/notifications/${id}/toggle-read`,
+    markAllRead: (role?: string) => role ? `${getApiUrl()}/api/notifications/mark-all-read?role=${encodeURIComponent(role)}` : `${getApiUrl()}/api/notifications/mark-all-read`,
+    guardAbsence: `${getApiUrl()}/api/notifications/guard-absence`,
   },
   attendance: {
     config: `${getApiUrl()}/api/attendance/config`,
