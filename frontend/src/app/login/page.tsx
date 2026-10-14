@@ -80,6 +80,7 @@ export default function LoginPage() {
       }
 
       saveAuthUser({
+        id: data.userId,
         email: data.email,
         role: data.role,
         fullName: data.fullName,

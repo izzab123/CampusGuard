@@ -1,6 +1,7 @@
 import { getApiUrl } from "./api";
 
 export interface AuthUser {
+  id?: number | string;
   email: string;
   role: "Student" | "Proctor and DSW" | "Security Guard" | "Shift Supervisor" | "Admin" | string;
   name?: string;
