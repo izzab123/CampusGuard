@@ -42,4 +42,23 @@ public interface ShiftHandoffRepository extends JpaRepository<ShiftHandoff, Long
             @Param("outgoingGuardId") Long outgoingGuardId,
             @Param("acknowledged") Boolean acknowledged
     );
+
+    @Query("SELECT h FROM ShiftHandoff h WHERE " +
+           "(:startDate IS NULL OR h.shiftDate >= :startDate) AND " +
+           "(:endDate IS NULL OR h.shiftDate <= :endDate) AND " +
+           "(:gate IS NULL OR LOWER(h.gatePost) LIKE LOWER(CONCAT('%', :gate, '%'))) AND " +
+           "(:guard IS NULL OR " +
+           " LOWER(h.outgoingGuardName) LIKE LOWER(CONCAT('%', :guard, '%')) OR " +
+           " LOWER(h.outgoingGuardBadgeNumber) LIKE LOWER(CONCAT('%', :guard, '%')) OR " +
+           " (h.acknowledgedByGuardName IS NOT NULL AND LOWER(h.acknowledgedByGuardName) LIKE LOWER(CONCAT('%', :guard, '%'))) OR " +
+           " (h.acknowledgedByGuardBadge IS NOT NULL AND LOWER(h.acknowledgedByGuardBadge) LIKE LOWER(CONCAT('%', :guard, '%')))) AND " +
+           "(:status IS NULL OR LOWER(h.status) = LOWER(:status)) " +
+           "ORDER BY h.shiftDate DESC, h.createdAt DESC")
+    List<ShiftHandoff> searchLogbook(
+            @Param("startDate") java.time.LocalDate startDate,
+            @Param("endDate") java.time.LocalDate endDate,
+            @Param("guard") String guard,
+            @Param("gate") String gate,
+            @Param("status") String status
+    );
 }

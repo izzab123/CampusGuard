@@ -99,7 +99,91 @@ public class ShiftHandoffDataInitializer implements CommandLineRunner {
             savedAckHandoff.setAcknowledgement(savedAck);
             handoffRepo.save(savedAckHandoff);
 
-            logger.info("Initialized Shift Handoff test seed records (1 pending, 1 acknowledged).");
+            // 3. Yesterday's Evening shift at South Gate Checkpoint
+            ShiftHandoff yesterdayHandoff = new ShiftHandoff(
+                    "South Gate Checkpoint",
+                    3L,
+                    "Officer Marcus Vance",
+                    "Shield #4082",
+                    "guard@campusguard.edu",
+                    "EVENING",
+                    today.minusDays(1),
+                    "14:00",
+                    "22:00",
+                    "Evening visitor influx cleared. Commercial gate locked down per 21:00 protocol.",
+                    "Radios (2/2) OK, Gate Key 02, Night Patrol Torch",
+                    "South Gate Master Keyring"
+            );
+            yesterdayHandoff.setStatus("ACKNOWLEDGED");
+            yesterdayHandoff.setAcknowledged(true);
+            LocalDateTime yAckTime = LocalDateTime.now().minusDays(1).withHour(22).withMinute(5);
+            yesterdayHandoff.setAcknowledgedAt(yAckTime);
+            yesterdayHandoff.setAcknowledgedByGuardId(6L);
+            yesterdayHandoff.setAcknowledgedByGuardName("Officer David Chen");
+            yesterdayHandoff.setAcknowledgedByGuardBadge("Shield #3910");
+            yesterdayHandoff.setResponsibilityTransferred(true);
+            yesterdayHandoff.setAcknowledgementNotes("Post physically inspected. Night lockdown verified.");
+            ShiftHandoff savedY = handoffRepo.save(yesterdayHandoff);
+
+            ShiftHandoffAcknowledgement yAck = new ShiftHandoffAcknowledgement(
+                    savedY.getId(),
+                    savedY.getGatePost(),
+                    6L,
+                    "Officer David Chen",
+                    "Shield #3910",
+                    "d.chen@campusguard.edu",
+                    yAckTime,
+                    "Post physically inspected. Night lockdown verified.",
+                    3L,
+                    "Officer Marcus Vance",
+                    "Shield #4082"
+            );
+            savedY.setAcknowledgement(ackRepo.save(yAck));
+            handoffRepo.save(savedY);
+
+            // 4. Past Morning shift at Central Library Gate (3 days ago)
+            ShiftHandoff pastHandoff = new ShiftHandoff(
+                    "Central Library & Student Plaza",
+                    7L,
+                    "Officer Sarah Jenkins",
+                    "Shield #4120",
+                    "s.jenkins@campusguard.edu",
+                    "MORNING",
+                    today.minusDays(3),
+                    "08:00",
+                    "16:00",
+                    "Library exam study week flow. Emergency exit push-bars inspected and clear.",
+                    "Radios (1/1) OK, Plaza Patrol Tablet",
+                    "Library Emergency Key Box Key"
+            );
+            pastHandoff.setStatus("ACKNOWLEDGED");
+            pastHandoff.setAcknowledged(true);
+            LocalDateTime pAckTime = LocalDateTime.now().minusDays(3).withHour(16).withMinute(2);
+            pastHandoff.setAcknowledgedAt(pAckTime);
+            pastHandoff.setAcknowledgedByGuardId(3L);
+            pastHandoff.setAcknowledgedByGuardName("Officer Marcus Vance");
+            pastHandoff.setAcknowledgedByGuardBadge("Shield #4082");
+            pastHandoff.setResponsibilityTransferred(true);
+            pastHandoff.setAcknowledgementNotes("Took over evening student plaza watch.");
+            ShiftHandoff savedP = handoffRepo.save(pastHandoff);
+
+            ShiftHandoffAcknowledgement pAck = new ShiftHandoffAcknowledgement(
+                    savedP.getId(),
+                    savedP.getGatePost(),
+                    3L,
+                    "Officer Marcus Vance",
+                    "Shield #4082",
+                    "guard@campusguard.edu",
+                    pAckTime,
+                    "Took over evening student plaza watch.",
+                    7L,
+                    "Officer Sarah Jenkins",
+                    "Shield #4120"
+            );
+            savedP.setAcknowledgement(ackRepo.save(pAck));
+            handoffRepo.save(savedP);
+
+            logger.info("Initialized Shift Handoff test seed records (4 history entries across dates/gates).");
         }
     }
 }

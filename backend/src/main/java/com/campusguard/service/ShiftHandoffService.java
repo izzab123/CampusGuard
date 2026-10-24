@@ -405,4 +405,42 @@ public class ShiftHandoffService {
     public List<ShiftHandoffAcknowledgement> getAllAcknowledgements() {
         return ackRepo.findAllByOrderByAcknowledgedAtDesc();
     }
+
+    /**
+     * For Shift Supervisors:
+     * View history list of logbook entries showing date, shift, gate, outgoing guard,
+     * incoming guard, and acknowledgement status.
+     * Allows filtering by date range (startDate to endDate), guard, and gate.
+     * Strictly read-only.
+     */
+    @Transactional(readOnly = true)
+    public List<com.campusguard.dto.LogbookEntryResponse> searchLogbookEntries(
+            LocalDate startDate,
+            LocalDate endDate,
+            String guard,
+            String gate,
+            String status
+    ) {
+        String filterGuard = (guard != null && !guard.isBlank()) ? guard.trim() : null;
+        String filterGate = (gate != null && !gate.isBlank()) ? gate.trim() : null;
+        String filterStatus = (status != null && !status.isBlank()) ? status.trim() : null;
+
+        List<ShiftHandoff> handoffs = handoffRepo.searchLogbook(startDate, endDate, filterGuard, filterGate, filterStatus);
+        return handoffs.stream()
+                .map(com.campusguard.dto.LogbookEntryResponse::fromShiftHandoff)
+                .toList();
+    }
+
+    /**
+     * When the supervisor clicks to open an entry, return the full handoff details.
+     * Strictly read-only for supervisors.
+     */
+    @Transactional(readOnly = true)
+    public ShiftHandoff getLogbookEntryDetails(Long id) {
+        if (id == null) {
+            throw new IllegalArgumentException("Logbook entry ID cannot be null");
+        }
+        return handoffRepo.findById(id)
+                .orElseThrow(() -> new NoSuchElementException("Logbook entry not found with ID: " + id));
+    }
 }
