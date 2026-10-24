@@ -165,18 +165,24 @@ export default function ShiftSupervisorDashboard() {
     }
   };
 
-  const handleResolveIncident = async (id: number) => {
+  const handleUpdateIncidentStatus = async (id: number, newStatus: string) => {
     try {
-      const res = await fetch(API_ENDPOINTS.incidents.resolve(id), {
+      const res = await fetch(API_ENDPOINTS.incidents.status(id), {
         method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ status: newStatus }),
       });
       if (res.ok) {
-        showNotification(`Incident #${id} cleared and resolved.`);
+        showNotification(`Incident #${id} status updated to ${newStatus.replace("_", " ")}.`);
         loadData();
       }
     } catch {
-      showNotification(`Incident #${id} marked resolved.`);
+      showNotification(`Failed to update status for incident #${id}.`);
     }
+  };
+
+  const handleResolveIncident = async (id: number) => {
+    handleUpdateIncidentStatus(id, "RESOLVED");
   };
 
   const handleShiftCheckout = async (id: number) => {
@@ -613,8 +619,18 @@ export default function ShiftSupervisorDashboard() {
                     <div className="text-xs space-y-1">
                       <h3 className="font-bold text-slate-900 text-sm">{item.title}</h3>
                       <p className="text-slate-600 font-medium">{item.location}</p>
-                      <div className="text-[11px] text-slate-500">
-                        Status: <strong className="text-red-700">{item.status}</strong>
+                      <div className="flex items-center gap-1.5 text-[11px] text-slate-500 pt-1">
+                        <span className="font-bold">Status:</span>
+                        <select
+                          value={item.status?.toUpperCase().replace(" ", "_") || "OPEN"}
+                          onChange={(e) => handleUpdateIncidentStatus(item.id, e.target.value)}
+                          className="text-xs font-bold px-2 py-0.5 rounded border border-slate-300 bg-white text-slate-700 cursor-pointer hover:border-blue-500"
+                        >
+                          <option value="OPEN">Open</option>
+                          <option value="IN_PROGRESS">In Progress</option>
+                          <option value="DISPATCHED">Dispatched</option>
+                          <option value="RESOLVED">Resolved</option>
+                        </select>
                       </div>
                     </div>
 
@@ -626,13 +642,6 @@ export default function ShiftSupervisorDashboard() {
                       >
                         <AlertTriangle className="w-3 h-3" />
                         <span>Escalate to Proctor</span>
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => handleResolveIncident(item.id)}
-                        className="px-3 py-1.5 bg-white border border-slate-200 hover:bg-slate-50 text-slate-700 font-semibold text-xs rounded-lg transition cursor-pointer"
-                      >
-                        Resolve
                       </button>
                     </div>
                   </div>

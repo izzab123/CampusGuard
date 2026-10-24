@@ -261,7 +261,7 @@ export default function GuardNotificationsPage() {
       <IncidentDetailsModal
         isOpen={isModalOpen}
         incidentId={selectedIncidentId}
-        canManageStatus={true}
+        canManageStatus={false}
         onClose={() => {
           setIsModalOpen(false);
           setSelectedIncidentId(null);

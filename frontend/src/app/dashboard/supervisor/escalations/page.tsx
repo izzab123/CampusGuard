@@ -69,16 +69,24 @@ export default function SupervisorEscalationsPage() {
     setTimeout(() => setActionNotice(null), 3500);
   };
 
-  const handleResolve = async (id: number) => {
+  const handleUpdateStatus = async (id: number, newStatus: string) => {
     try {
-      const res = await fetch(API_ENDPOINTS.incidents.resolve(id), { method: "PATCH" });
+      const res = await fetch(API_ENDPOINTS.incidents.status(id), {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ status: newStatus }),
+      });
       if (res.ok) {
-        showNotification(`Incident #${id} resolved and archived.`);
+        showNotification(`Incident #${id} status updated to ${newStatus.replace("_", " ")}.`);
         loadIncidents();
       }
     } catch {
-      showNotification(`Incident #${id} marked as resolved.`);
+      showNotification("Failed to update status.");
     }
+  };
+
+  const handleResolve = async (id: number) => {
+    handleUpdateStatus(id, "RESOLVED");
   };
 
   const handleDeployTactical = async (id: number) => {
@@ -394,7 +402,17 @@ export default function SupervisorEscalationsPage() {
 
                     <div className="flex items-center gap-2 font-mono text-[11px]">
                       <span className="font-bold text-slate-900">#ESC-{inc.id}</span>
-                      <span className="text-slate-500 font-semibold">{inc.status}</span>
+                      <span className={`text-[10px] font-bold px-2 py-0.5 rounded uppercase ${
+                        inc.status?.toUpperCase() === "RESOLVED"
+                          ? "bg-emerald-100 text-emerald-800"
+                          : inc.status?.toUpperCase() === "DISPATCHED"
+                          ? "bg-sky-100 text-sky-800"
+                          : inc.status?.toUpperCase() === "IN_PROGRESS"
+                          ? "bg-indigo-100 text-indigo-800"
+                          : "bg-amber-100 text-amber-800"
+                      }`}>
+                        {inc.status?.toUpperCase() === "IN_PROGRESS" ? "IN PROGRESS" : inc.status}
+                      </span>
                     </div>
                   </div>
 
@@ -449,13 +467,19 @@ export default function SupervisorEscalationsPage() {
                       </button>
                     </div>
 
-                    <button
-                      type="button"
-                      onClick={() => handleResolve(inc.id)}
-                      className="text-slate-500 hover:text-emerald-700 text-xs font-semibold cursor-pointer"
-                    >
-                      Mark Resolved / Clear
-                    </button>
+                    <div className="flex items-center gap-2">
+                      <span className="text-[11px] font-bold text-slate-500">Status:</span>
+                      <select
+                        value={inc.status?.toUpperCase().replace(" ", "_") || "OPEN"}
+                        onChange={(e) => handleUpdateStatus(inc.id, e.target.value)}
+                        className="text-xs font-bold px-2.5 py-1 rounded-lg border border-slate-200 bg-white text-slate-700 cursor-pointer hover:border-blue-500"
+                      >
+                        <option value="OPEN">Open</option>
+                        <option value="IN_PROGRESS">In Progress</option>
+                        <option value="DISPATCHED">Dispatched</option>
+                        <option value="RESOLVED">Resolved</option>
+                      </select>
+                    </div>
                   </div>
                 </div>
               ))

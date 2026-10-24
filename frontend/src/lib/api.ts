@@ -21,6 +21,13 @@ export const API_ENDPOINTS = {
   incidents: {
     base: `${getApiUrl()}/api/incidents`,
     list: `${getApiUrl()}/api/incidents`,
+    myReports: (email?: string, role?: string) => {
+      const params = new URLSearchParams();
+      if (email) params.set("email", email);
+      if (role) params.set("role", role);
+      const q = params.toString();
+      return q ? `${getApiUrl()}/api/incidents/my-reports?${q}` : `${getApiUrl()}/api/incidents/my-reports`;
+    },
     byId: (id: number | string) => `${getApiUrl()}/api/incidents/${id}`,
     resolve: (id: number | string) => `${getApiUrl()}/api/incidents/${id}/resolve`,
     status: (id: number | string) => `${getApiUrl()}/api/incidents/${id}/status`,

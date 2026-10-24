@@ -26,7 +26,28 @@ public class IncidentController {
     }
 
     @GetMapping
-    public List<IncidentReport> getAllIncidents() {
+    public List<IncidentReport> getAllIncidents(
+            @RequestParam(value = "email", required = false) String email,
+            @RequestParam(value = "role", required = false) String role) {
+        if (email != null && !email.isBlank()) {
+            return incidentRepo.findByReporterEmailIgnoreCaseOrderByCreatedAtDesc(email.trim());
+        }
+        if (role != null && !role.isBlank()) {
+            return incidentRepo.findByReporterRoleIgnoreCaseOrderByCreatedAtDesc(role.trim());
+        }
+        return incidentRepo.findAllByOrderByCreatedAtDesc();
+    }
+
+    @GetMapping("/my-reports")
+    public List<IncidentReport> getMyReports(
+            @RequestParam(value = "email", required = false) String email,
+            @RequestParam(value = "role", required = false) String role) {
+        if (email != null && !email.isBlank()) {
+            return incidentRepo.findByReporterEmailIgnoreCaseOrderByCreatedAtDesc(email.trim());
+        }
+        if (role != null && !role.isBlank()) {
+            return incidentRepo.findByReporterRoleIgnoreCaseOrderByCreatedAtDesc(role.trim());
+        }
         return incidentRepo.findAllByOrderByCreatedAtDesc();
     }
 
@@ -65,7 +86,7 @@ public class IncidentController {
             report.setCreatedAt(LocalDateTime.now());
         }
         if (report.getStatus() == null || report.getStatus().isBlank()) {
-            report.setStatus("IN_TRIAGE");
+            report.setStatus("OPEN");
         }
         IncidentReport saved = incidentRepo.save(report);
 
@@ -145,22 +166,99 @@ public class IncidentController {
 
     @PatchMapping("/{id}/resolve")
     public ResponseEntity<IncidentReport> resolveIncident(@PathVariable Long id) {
-        return incidentRepo.findById(id).map(incident -> {
-            incident.setStatus("RESOLVED");
-            incident.setResolvedAt(LocalDateTime.now());
-            return ResponseEntity.ok(incidentRepo.save(incident));
-        }).orElse(ResponseEntity.notFound().build());
+        return updateStatus(id, Map.of("status", "RESOLVED"));
     }
 
     @PatchMapping("/{id}/status")
     public ResponseEntity<IncidentReport> updateStatus(@PathVariable Long id, @RequestBody Map<String, String> body) {
-        String newStatus = body.getOrDefault("status", "IN_TRIAGE");
+        String rawStatus = body.getOrDefault("status", "OPEN");
+        String normalizedStatus = normalizeStatus(rawStatus);
+
         return incidentRepo.findById(id).map(incident -> {
-            incident.setStatus(newStatus.toUpperCase());
-            if ("RESOLVED".equalsIgnoreCase(newStatus)) {
-                incident.setResolvedAt(LocalDateTime.now());
+            String oldStatus = incident.getStatus() != null ? incident.getStatus() : "OPEN";
+
+            // Only perform update and notify when status actually differs
+            if (!normalizedStatus.equalsIgnoreCase(oldStatus)) {
+                incident.setStatus(normalizedStatus);
+                if ("RESOLVED".equalsIgnoreCase(normalizedStatus)) {
+                    incident.setResolvedAt(LocalDateTime.now());
+                } else {
+                    incident.setResolvedAt(null);
+                }
+                IncidentReport saved = incidentRepo.save(incident);
+
+                // Dispatch status change notifications
+                try {
+                    List<Notification> statusNotifs = new ArrayList<>();
+
+                    // 1. Notification to the person who submitted the report
+                    String submitterRole = saved.getReporterRole() != null && !saved.getReporterRole().isBlank()
+                            ? saved.getReporterRole()
+                            : "Student";
+                    Notification submitterNotif = new Notification(
+                            submitterRole,
+                            saved.getReporterEmail(),
+                            "Incident Report Status Updated",
+                            String.format("Your incident report #%d ('%s') status has been updated to %s. Click to view details.",
+                                    saved.getId(), saved.getTitle(), formatStatusLabel(normalizedStatus)),
+                            "INCIDENT",
+                            saved.getSeverity()
+                    );
+                    submitterNotif.setIncidentId(saved.getId());
+                    submitterNotif.setCreatedAt(LocalDateTime.now());
+                    statusNotifs.add(submitterNotif);
+
+                    // 2. Notification to Shift Supervisor
+                    Notification supNotif = new Notification(
+                            "Shift Supervisor",
+                            null,
+                            "Incident #" + saved.getId() + " Status: " + formatStatusLabel(normalizedStatus),
+                            String.format("Incident #%d ('%s') status updated from %s to %s.",
+                                    saved.getId(), saved.getTitle(), formatStatusLabel(oldStatus), formatStatusLabel(normalizedStatus)),
+                            "INCIDENT",
+                            saved.getSeverity()
+                    );
+                    supNotif.setIncidentId(saved.getId());
+                    supNotif.setCreatedAt(LocalDateTime.now());
+                    statusNotifs.add(supNotif);
+
+                    // 3. Notification to Proctor and DSW
+                    Notification proctorNotif = new Notification(
+                            "Proctor and DSW",
+                            null,
+                            "Incident #" + saved.getId() + " Status: " + formatStatusLabel(normalizedStatus),
+                            String.format("Incident #%d ('%s') status updated from %s to %s.",
+                                    saved.getId(), saved.getTitle(), formatStatusLabel(oldStatus), formatStatusLabel(normalizedStatus)),
+                            "INCIDENT",
+                            saved.getSeverity()
+                    );
+                    proctorNotif.setIncidentId(saved.getId());
+                    proctorNotif.setCreatedAt(LocalDateTime.now());
+                    statusNotifs.add(proctorNotif);
+
+                    // 4. Notification to Admin
+                    Notification adminNotif = new Notification(
+                            "Admin",
+                            null,
+                            "Incident #" + saved.getId() + " Status: " + formatStatusLabel(normalizedStatus),
+                            String.format("Incident #%d ('%s') status updated from %s to %s.",
+                                    saved.getId(), saved.getTitle(), formatStatusLabel(oldStatus), formatStatusLabel(normalizedStatus)),
+                            "INCIDENT",
+                            saved.getSeverity()
+                    );
+                    adminNotif.setIncidentId(saved.getId());
+                    adminNotif.setCreatedAt(LocalDateTime.now());
+                    statusNotifs.add(adminNotif);
+
+                    notificationRepo.saveAll(statusNotifs);
+                } catch (Exception e) {
+                    System.err.println("Failed to dispatch status update notifications for incident #" + saved.getId() + ": " + e.getMessage());
+                }
+
+                return ResponseEntity.ok(saved);
             }
-            return ResponseEntity.ok(incidentRepo.save(incident));
+
+            return ResponseEntity.ok(incident);
         }).orElse(ResponseEntity.notFound().build());
     }
 
@@ -169,8 +267,35 @@ public class IncidentController {
         return incidentRepo.findById(id).map(incident -> {
             incident.setSeverity("CRITICAL");
             incident.setRoutedTo("PROCTOR_AND_DSW");
-            incident.setStatus("DISPATCHED");
-            return ResponseEntity.ok(incidentRepo.save(incident));
+            return updateStatus(id, Map.of("status", "DISPATCHED"));
         }).orElse(ResponseEntity.notFound().build());
+    }
+
+    private String normalizeStatus(String status) {
+        if (status == null || status.isBlank()) return "OPEN";
+        String s = status.trim().toUpperCase().replace(" ", "_");
+        switch (s) {
+            case "IN_PROGRESS":
+            case "INPROGRESS":
+                return "IN_PROGRESS";
+            case "DISPATCHED":
+                return "DISPATCHED";
+            case "RESOLVED":
+                return "RESOLVED";
+            case "OPEN":
+            default:
+                return "OPEN";
+        }
+    }
+
+    private String formatStatusLabel(String status) {
+        if (status == null) return "Open";
+        switch (status.toUpperCase().replace(" ", "_")) {
+            case "IN_PROGRESS": return "In Progress";
+            case "DISPATCHED": return "Dispatched";
+            case "RESOLVED": return "Resolved";
+            case "OPEN":
+            default: return "Open";
+        }
     }
 }
