@@ -244,18 +244,27 @@ export default function GuardIncidentsPage() {
               <div>
                 <label className="font-bold text-slate-700 block mb-1">Severity</label>
                 <div className="grid grid-cols-3 gap-2">
-                  {["LOW", "MEDIUM", "HIGH"].map((sev) => (
+                  {[
+                    { value: "LOW", label: "Minor", desc: "Supervisor only" },
+                    { value: "MEDIUM", label: "Medium", desc: "Supervisor & Admin" },
+                    { value: "HIGH", label: "Major", desc: "Supervisor, Admin & Proctor" },
+                  ].map((item) => (
                     <button
-                      key={sev}
+                      key={item.value}
                       type="button"
-                      onClick={() => setSelectedSeverity(sev)}
-                      className={`p-2 rounded-lg font-bold border text-center transition cursor-pointer ${
-                        selectedSeverity === sev
-                          ? "bg-blue-50 border-blue-600 text-blue-900"
+                      onClick={() => setSelectedSeverity(item.value)}
+                      className={`p-2 rounded-lg font-bold border text-center transition cursor-pointer flex flex-col items-center justify-center gap-0.5 ${
+                        selectedSeverity === item.value
+                          ? item.value === "HIGH"
+                            ? "bg-red-50 border-red-500 text-red-800"
+                            : item.value === "MEDIUM"
+                            ? "bg-amber-50 border-amber-500 text-amber-900"
+                            : "bg-blue-50 border-blue-600 text-blue-900"
                           : "border-slate-200 text-slate-600 hover:bg-slate-50"
                       }`}
                     >
-                      {sev}
+                      <span>{item.label}</span>
+                      <span className="text-[10px] font-normal opacity-75">{item.desc}</span>
                     </button>
                   ))}
                 </div>
@@ -350,9 +359,9 @@ export default function GuardIncidentsPage() {
                         </span>
                         <span
                           className={`px-2 py-0.5 rounded text-[10px] font-bold ${
-                            item.severity === "CRITICAL" || item.severity === "HIGH"
+                            item.severity === "CRITICAL" || item.severity === "HIGH" || item.severity === "MAJOR"
                               ? "bg-red-100 text-red-800"
-                              : item.severity === "MEDIUM"
+                              : item.severity === "MEDIUM" || item.severity === "MODERATE"
                               ? "bg-amber-100 text-amber-800"
                               : "bg-slate-100 text-slate-700"
                           }`}

@@ -325,20 +325,27 @@ export default function StudentReportView() {
                 3. Severity Level
               </span>
               <div className="grid grid-cols-3 gap-2 text-xs">
-                {["LOW", "MEDIUM", "HIGH"].map((sev) => (
+                {[
+                  { value: "LOW", label: "Minor", desc: "Supervisor only" },
+                  { value: "MEDIUM", label: "Medium", desc: "Supervisor & Admin" },
+                  { value: "HIGH", label: "Major", desc: "Supervisor, Admin & Proctor" },
+                ].map((item) => (
                   <button
-                    key={sev}
+                    key={item.value}
                     type="button"
-                    onClick={() => setPriority(sev)}
-                    className={`py-2 px-3 rounded-lg border font-bold text-center transition cursor-pointer ${
-                      priority === sev
-                        ? sev === "HIGH"
+                    onClick={() => setPriority(item.value)}
+                    className={`py-2 px-2.5 rounded-lg border font-bold text-center transition cursor-pointer flex flex-col items-center justify-center gap-0.5 ${
+                      priority === item.value
+                        ? item.value === "HIGH"
                           ? "bg-red-50 border-red-500 text-red-800"
+                          : item.value === "MEDIUM"
+                          ? "bg-amber-50 border-amber-500 text-amber-900"
                           : "bg-blue-50 border-blue-600 text-blue-900"
                         : "border-slate-200 text-slate-600 hover:bg-slate-50"
                     }`}
                   >
-                    {sev}
+                    <span>{item.label}</span>
+                    <span className="text-[10px] font-normal opacity-75">{item.desc}</span>
                   </button>
                 ))}
               </div>
