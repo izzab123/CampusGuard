@@ -14,7 +14,7 @@ import {
 } from "lucide-react";
 import { performLogout } from "@/lib/auth";
 
-export type AdminTab = "Dashboard" | "Users & Roles" | "Security Audit Logs" | "Profile";
+export type AdminTab = "Dashboard" | "Users & Roles" | "Security Audit Logs" | "Notifications" | "Profile";
 
 interface AdminLayoutProps {
   activeTab: AdminTab;
@@ -26,6 +26,7 @@ const NAV_ITEMS: { name: AdminTab; path: string; icon: React.ElementType; badge?
   { name: "Dashboard", path: "/dashboard/admin", icon: LayoutGrid },
   { name: "Users & Roles", path: "/dashboard/admin/users", icon: Users, badge: "Directory", badgeColor: "bg-slate-100 text-slate-700" },
   { name: "Security Audit Logs", path: "/dashboard/admin/audit-logs", icon: Shield, badge: "Live", badgeColor: "bg-blue-100 text-blue-700" },
+  { name: "Notifications", path: "/dashboard/admin?tab=notifications", icon: Bell, badge: "Alerts", badgeColor: "bg-rose-100 text-rose-700" },
   { name: "Profile", path: "/dashboard/admin/profile", icon: User },
 ];
 
@@ -61,6 +62,7 @@ export default function AdminLayout({
                 { name: "Dashboard" as AdminTab, label: "Dashboard", path: "/dashboard/admin" },
                 { name: "Users & Roles" as AdminTab, label: "Users & Roles", path: "/dashboard/admin/users" },
                 { name: "Security Audit Logs" as AdminTab, label: "Audit Logs", path: "/dashboard/admin/audit-logs" },
+                { name: "Notifications" as AdminTab, label: "Notifications", path: "/dashboard/admin?tab=notifications" },
                 { name: "Profile" as AdminTab, label: "Profile", path: "/dashboard/admin/profile" },
               ].map((item) => {
                 const isActive = activeTab === item.name;
@@ -96,8 +98,9 @@ export default function AdminLayout({
 
             {/* Bell Icon */}
             <Link
-              href="/dashboard/admin/audit-logs"
-              aria-label="Audit Alerts"
+              href="/dashboard/admin?tab=notifications"
+              onClick={() => onTabChange && onTabChange("Notifications")}
+              aria-label="Admin Alerts & Notifications"
               className="w-9 h-9 rounded-full bg-slate-100 hover:bg-slate-200 flex items-center justify-center text-slate-600 relative transition cursor-pointer"
             >
               <Bell className="w-4 h-4" />

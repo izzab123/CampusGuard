@@ -36,6 +36,7 @@ public class Notification {
     private String shiftHours;
     private String dutyStatus; // NO_SHOW, OVERDUE, ABSENT, ESCALATED
     private Long shiftId;
+    private Long incidentId;
 
     @Column(nullable = false)
     private LocalDateTime createdAt;
@@ -116,6 +117,9 @@ public class Notification {
 
     public Long getShiftId() { return shiftId; }
     public void setShiftId(Long shiftId) { this.shiftId = shiftId; }
+
+    public Long getIncidentId() { return incidentId; }
+    public void setIncidentId(Long incidentId) { this.incidentId = incidentId; }
 
     public LocalDateTime getCreatedAt() { return createdAt; }
     public void setCreatedAt(LocalDateTime createdAt) { this.createdAt = createdAt; }

@@ -7,6 +7,7 @@ import AdminDashboardView from "@/components/admin/AdminDashboardView";
 import AdminUsersView from "@/components/admin/AdminUsersView";
 import AdminAuditLogsView from "@/components/admin/AdminAuditLogsView";
 import AdminProfileView from "@/components/admin/AdminProfileView";
+import AdminNotificationsView from "@/components/admin/AdminNotificationsView";
 
 function AdminDashboardContent() {
   const searchParams = useSearchParams();
@@ -18,6 +19,8 @@ function AdminDashboardContent() {
       setActiveTab("Users & Roles");
     } else if (tabParam === "audit" || tabParam === "audit-logs" || tabParam === "logs") {
       setActiveTab("Security Audit Logs");
+    } else if (tabParam === "notifications" || tabParam === "notifs" || tabParam === "alerts") {
+      setActiveTab("Notifications");
     } else if (tabParam === "profile") {
       setActiveTab("Profile");
     } else if (tabParam === "dashboard") {
@@ -30,6 +33,7 @@ function AdminDashboardContent() {
       {activeTab === "Dashboard" && <AdminDashboardView />}
       {activeTab === "Users & Roles" && <AdminUsersView />}
       {activeTab === "Security Audit Logs" && <AdminAuditLogsView />}
+      {activeTab === "Notifications" && <AdminNotificationsView />}
       {activeTab === "Profile" && <AdminProfileView />}
     </AdminLayout>
   );

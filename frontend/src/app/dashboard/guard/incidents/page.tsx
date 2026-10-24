@@ -78,6 +78,7 @@ export default function GuardIncidentsPage() {
           location,
           reporterName: officer,
           reporterRole: "Security Guard",
+          reporterEmail: user?.email || undefined,
         }),
       });
 

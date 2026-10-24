@@ -130,8 +130,10 @@ export default function StudentReportView() {
           description,
           severity: priority,
           location: specificSpot ? `${location} (${specificSpot})` : location,
+          category,
           reporterName,
           reporterRole: "Student",
+          reporterEmail: user?.email || undefined,
         }),
       });
 
@@ -164,8 +166,10 @@ export default function StudentReportView() {
           description: `Night transit accompaniment requested from ${escortLocation} to ${escortDestination}.`,
           severity: "LOW",
           location: escortLocation,
+          category: "safewalk",
           reporterName: user?.fullName || "Alex Morgan",
           reporterRole: "Student",
+          reporterEmail: user?.email || undefined,
         }),
       });
 

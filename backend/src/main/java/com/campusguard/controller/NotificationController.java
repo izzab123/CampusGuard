@@ -20,9 +20,14 @@ public class NotificationController {
     }
 
     @GetMapping
-    public List<Notification> getNotifications(@RequestParam(value = "role", required = false) String role) {
-        if (role != null && !role.isBlank()) {
-            return notificationRepo.findByRecipientRoleIgnoreCaseOrRecipientRoleIgnoreCaseOrderByCreatedAtDesc(role.trim(), "ALL");
+    public List<Notification> getNotifications(
+            @RequestParam(value = "role", required = false) String role,
+            @RequestParam(value = "email", required = false) String email) {
+        String cleanRole = (role != null && !role.isBlank()) ? role.trim() : null;
+        String cleanEmail = (email != null && !email.isBlank()) ? email.trim() : null;
+
+        if (cleanRole != null || cleanEmail != null) {
+            return notificationRepo.findForRecipient(cleanRole, cleanEmail);
         }
         return notificationRepo.findAllByOrderByCreatedAtDesc();
     }
