@@ -17,6 +17,7 @@ import {
 } from "lucide-react";
 import { performLogout, getStoredAuthUser, AuthUser } from "@/lib/auth";
 import { API_ENDPOINTS } from "@/lib/api";
+import IncidentDetailsModal from "@/components/incidents/IncidentDetailsModal";
 
 interface IncidentItem {
   id: number;
@@ -38,15 +39,32 @@ export default function GuardIncidentsPage() {
   const [location, setLocation] = useState("Gate 04 Automated Barrier");
   const [narrative, setNarrative] = useState("");
   const [incidentsList, setIncidentsList] = useState<IncidentItem[]>([]);
+  const [myIncidentsList, setMyIncidentsList] = useState<IncidentItem[]>([]);
+  const [activeTab, setActiveTab] = useState<"my" | "all">("my");
+  const [selectedIncidentId, setSelectedIncidentId] = useState<number | null>(null);
+  const [isModalOpen, setIsModalOpen] = useState(false);
   const [actionNotice, setActionNotice] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
 
   const fetchIncidents = async () => {
     try {
-      const res = await fetch(API_ENDPOINTS.incidents.base);
-      if (res.ok) {
-        const data = await res.json();
-        setIncidentsList(data);
+      const currentUser = getStoredAuthUser();
+      const myEndpoint = currentUser?.email
+        ? API_ENDPOINTS.incidents.myReports(currentUser.email, "Security Guard")
+        : API_ENDPOINTS.incidents.myReports(undefined, "Security Guard");
+
+      const [allRes, myRes] = await Promise.all([
+        fetch(API_ENDPOINTS.incidents.base),
+        fetch(myEndpoint),
+      ]);
+
+      if (allRes.ok) {
+        const allData = await allRes.json();
+        setIncidentsList(allData);
+      }
+      if (myRes.ok) {
+        const myData = await myRes.json();
+        setMyIncidentsList(myData);
       }
     } catch {}
   };
@@ -78,6 +96,7 @@ export default function GuardIncidentsPage() {
           location,
           reporterName: officer,
           reporterRole: "Security Guard",
+          reporterEmail: user?.email || undefined,
         }),
       });
 
@@ -225,18 +244,27 @@ export default function GuardIncidentsPage() {
               <div>
                 <label className="font-bold text-slate-700 block mb-1">Severity</label>
                 <div className="grid grid-cols-3 gap-2">
-                  {["LOW", "MEDIUM", "HIGH"].map((sev) => (
+                  {[
+                    { value: "LOW", label: "Minor", desc: "Supervisor only" },
+                    { value: "MEDIUM", label: "Medium", desc: "Supervisor & Admin" },
+                    { value: "HIGH", label: "Major", desc: "Supervisor, Admin & Proctor" },
+                  ].map((item) => (
                     <button
-                      key={sev}
+                      key={item.value}
                       type="button"
-                      onClick={() => setSelectedSeverity(sev)}
-                      className={`p-2 rounded-lg font-bold border text-center transition cursor-pointer ${
-                        selectedSeverity === sev
-                          ? "bg-blue-50 border-blue-600 text-blue-900"
+                      onClick={() => setSelectedSeverity(item.value)}
+                      className={`p-2 rounded-lg font-bold border text-center transition cursor-pointer flex flex-col items-center justify-center gap-0.5 ${
+                        selectedSeverity === item.value
+                          ? item.value === "HIGH"
+                            ? "bg-red-50 border-red-500 text-red-800"
+                            : item.value === "MEDIUM"
+                            ? "bg-amber-50 border-amber-500 text-amber-900"
+                            : "bg-blue-50 border-blue-600 text-blue-900"
                           : "border-slate-200 text-slate-600 hover:bg-slate-50"
                       }`}
                     >
-                      {sev}
+                      <span>{item.label}</span>
+                      <span className="text-[10px] font-normal opacity-75">{item.desc}</span>
                     </button>
                   ))}
                 </div>
@@ -274,72 +302,117 @@ export default function GuardIncidentsPage() {
             </form>
           </div>
 
-          {/* Active Incidents List */}
+          {/* Incidents Queue & Tracking */}
           <div className="lg:col-span-2 space-y-3">
-            <h2 className="text-sm font-bold text-slate-900">
-              Live Field Incidents Queue ({incidentsList.length})
-            </h2>
+            <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-200 pb-2">
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => setActiveTab("my")}
+                  className={`px-3 py-1.5 rounded-lg text-xs font-bold transition cursor-pointer ${
+                    activeTab === "my"
+                      ? "bg-[#0a2f77] text-white shadow-xs"
+                      : "bg-white text-slate-600 border border-slate-200 hover:bg-slate-50"
+                  }`}
+                >
+                  Track My Reports ({myIncidentsList.length})
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setActiveTab("all")}
+                  className={`px-3 py-1.5 rounded-lg text-xs font-bold transition cursor-pointer ${
+                    activeTab === "all"
+                      ? "bg-[#0a2f77] text-white shadow-xs"
+                      : "bg-white text-slate-600 border border-slate-200 hover:bg-slate-50"
+                  }`}
+                >
+                  All Field Incidents ({incidentsList.length})
+                </button>
+              </div>
+              <span className="text-[11px] text-slate-400">
+                Click any report to view live telemetry
+              </span>
+            </div>
 
-            {incidentsList.length === 0 ? (
+            {(activeTab === "my" ? myIncidentsList : incidentsList).length === 0 ? (
               <div className="p-8 bg-white border border-slate-200 rounded-2xl text-center text-slate-400 text-xs">
-                No active perimeter incidents logged.
+                {activeTab === "my"
+                  ? "No incident reports submitted by you yet."
+                  : "No active perimeter incidents logged."}
               </div>
             ) : (
-              incidentsList.map((item) => (
-                <div
-                  key={item.id}
-                  className="bg-white border border-slate-200 rounded-2xl p-4 shadow-xs space-y-2 text-xs"
-                >
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      <span className="font-mono font-bold text-blue-700">#INC-{item.id}</span>
-                      <span
-                        className={`px-2 py-0.5 rounded text-[10px] font-bold ${
-                          item.severity === "CRITICAL" || item.severity === "HIGH"
-                            ? "bg-red-100 text-red-800"
-                            : item.severity === "MEDIUM"
-                            ? "bg-amber-100 text-amber-800"
-                            : "bg-slate-100 text-slate-700"
-                        }`}
-                      >
-                        {item.severity}
-                      </span>
-                      <span className="font-bold text-slate-900">{item.title}</span>
-                    </div>
-
-                    <div className="flex items-center gap-2">
-                      <span
-                        className={`px-2 py-0.5 rounded text-[10px] font-bold ${
-                          item.status === "RESOLVED"
-                            ? "bg-emerald-100 text-emerald-800"
-                            : "bg-blue-100 text-blue-800"
-                        }`}
-                      >
-                        {item.status}
-                      </span>
-                      {item.status !== "RESOLVED" && (
-                        <button
-                          type="button"
-                          onClick={() => handleResolve(item.id)}
-                          className="px-2.5 py-1 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded text-[11px] cursor-pointer"
+              (activeTab === "my" ? myIncidentsList : incidentsList).map((item) => {
+                const s = item.status?.toUpperCase().replace(" ", "_");
+                return (
+                  <div
+                    key={item.id}
+                    onClick={() => {
+                      setSelectedIncidentId(item.id);
+                      setIsModalOpen(true);
+                    }}
+                    className="bg-white hover:bg-blue-50/40 border border-slate-200 rounded-2xl p-4 shadow-xs space-y-2 text-xs transition cursor-pointer group"
+                  >
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <span className="font-mono font-bold text-blue-700 group-hover:underline">
+                          #INC-{item.id}
+                        </span>
+                        <span
+                          className={`px-2 py-0.5 rounded text-[10px] font-bold ${
+                            item.severity === "CRITICAL" || item.severity === "HIGH" || item.severity === "MAJOR"
+                              ? "bg-red-100 text-red-800"
+                              : item.severity === "MEDIUM" || item.severity === "MODERATE"
+                              ? "bg-amber-100 text-amber-800"
+                              : "bg-slate-100 text-slate-700"
+                          }`}
                         >
-                          Resolve
-                        </button>
-                      )}
+                          {item.severity}
+                        </span>
+                        <span className="font-bold text-slate-900">{item.title}</span>
+                      </div>
+
+                      <div className="flex items-center gap-2">
+                        <span
+                          className={`px-2 py-0.5 rounded text-[10px] font-bold ${
+                            s === "RESOLVED"
+                              ? "bg-emerald-100 text-emerald-800 border border-emerald-200"
+                              : s === "DISPATCHED"
+                              ? "bg-sky-100 text-sky-800 border border-sky-200"
+                              : s === "IN_PROGRESS"
+                              ? "bg-indigo-100 text-indigo-800 border border-indigo-200"
+                              : "bg-amber-100 text-amber-800 border border-amber-200"
+                          }`}
+                        >
+                          {s === "IN_PROGRESS" ? "IN PROGRESS" : item.status}
+                        </span>
+                      </div>
+                    </div>
+
+                    <p className="text-slate-600 leading-relaxed">{item.description}</p>
+                    <div className="text-[11px] text-slate-400 flex items-center justify-between pt-1 border-t border-slate-100">
+                      <span>Location: {item.location}</span>
+                      <span>
+                        Reporter: {item.reporterName || "Campus Guard"} • {new Date(item.createdAt).toLocaleTimeString()}
+                      </span>
                     </div>
                   </div>
-
-                  <p className="text-slate-600 leading-relaxed">{item.description}</p>
-                  <div className="text-[11px] text-slate-400 flex items-center justify-between pt-1 border-t border-slate-100">
-                    <span>Location: {item.location}</span>
-                    <span>Reporter: {item.reporterName || "Campus Guard"} • {new Date(item.createdAt).toLocaleTimeString()}</span>
-                  </div>
-                </div>
-              ))
+                );
+              })
             )}
           </div>
         </div>
       </main>
+
+      {/* Incident Details Modal for Tracking */}
+      <IncidentDetailsModal
+        isOpen={isModalOpen}
+        incidentId={selectedIncidentId}
+        canManageStatus={false}
+        onClose={() => {
+          setIsModalOpen(false);
+          setSelectedIncidentId(null);
+        }}
+      />
     </div>
   );
 }

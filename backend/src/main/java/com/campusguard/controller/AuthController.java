@@ -98,7 +98,8 @@ public class AuthController {
                 user.getRole(),
                 user.getFullName(),
                 user.getBadgeNumber(),
-                user.getDepartment()
+                user.getDepartment(),
+                user.getId()
         );
 
         return ResponseEntity.ok(response);

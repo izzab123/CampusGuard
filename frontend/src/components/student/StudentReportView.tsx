@@ -21,6 +21,7 @@ import {
 } from "lucide-react";
 import { getStoredAuthUser } from "@/lib/auth";
 import { API_ENDPOINTS } from "@/lib/api";
+import IncidentDetailsModal from "@/components/incidents/IncidentDetailsModal";
 
 interface IncidentItem {
   id: number;
@@ -54,12 +55,18 @@ export default function StudentReportView() {
   const [escortLocation, setEscortLocation] = useState("Main Library East Terrace");
   const [escortDestination, setEscortDestination] = useState("Residence Hall B");
 
-  // Dynamic user past tickets
+  // Dynamic user reports tracking & details modal
   const [pastReports, setPastReports] = useState<IncidentItem[]>([]);
+  const [selectedIncidentId, setSelectedIncidentId] = useState<number | null>(null);
+  const [isModalOpen, setIsModalOpen] = useState(false);
 
   const fetchReports = async () => {
     try {
-      const res = await fetch(API_ENDPOINTS.incidents.base);
+      const user = getStoredAuthUser();
+      const endpoint = user?.email
+        ? API_ENDPOINTS.incidents.myReports(user.email, "Student")
+        : API_ENDPOINTS.incidents.myReports(undefined, "Student");
+      const res = await fetch(endpoint);
       if (res.ok) {
         const data = await res.json();
         setPastReports(data);
@@ -130,8 +137,10 @@ export default function StudentReportView() {
           description,
           severity: priority,
           location: specificSpot ? `${location} (${specificSpot})` : location,
+          category,
           reporterName,
           reporterRole: "Student",
+          reporterEmail: user?.email || undefined,
         }),
       });
 
@@ -164,8 +173,10 @@ export default function StudentReportView() {
           description: `Night transit accompaniment requested from ${escortLocation} to ${escortDestination}.`,
           severity: "LOW",
           location: escortLocation,
+          category: "safewalk",
           reporterName: user?.fullName || "Alex Morgan",
           reporterRole: "Student",
+          reporterEmail: user?.email || undefined,
         }),
       });
 
@@ -314,20 +325,27 @@ export default function StudentReportView() {
                 3. Severity Level
               </span>
               <div className="grid grid-cols-3 gap-2 text-xs">
-                {["LOW", "MEDIUM", "HIGH"].map((sev) => (
+                {[
+                  { value: "LOW", label: "Minor", desc: "Supervisor only" },
+                  { value: "MEDIUM", label: "Medium", desc: "Supervisor & Admin" },
+                  { value: "HIGH", label: "Major", desc: "Supervisor, Admin & Proctor" },
+                ].map((item) => (
                   <button
-                    key={sev}
+                    key={item.value}
                     type="button"
-                    onClick={() => setPriority(sev)}
-                    className={`py-2 px-3 rounded-lg border font-bold text-center transition cursor-pointer ${
-                      priority === sev
-                        ? sev === "HIGH"
+                    onClick={() => setPriority(item.value)}
+                    className={`py-2 px-2.5 rounded-lg border font-bold text-center transition cursor-pointer flex flex-col items-center justify-center gap-0.5 ${
+                      priority === item.value
+                        ? item.value === "HIGH"
                           ? "bg-red-50 border-red-500 text-red-800"
+                          : item.value === "MEDIUM"
+                          ? "bg-amber-50 border-amber-500 text-amber-900"
                           : "bg-blue-50 border-blue-600 text-blue-900"
                         : "border-slate-200 text-slate-600 hover:bg-slate-50"
                     }`}
                   >
-                    {sev}
+                    <span>{item.label}</span>
+                    <span className="text-[10px] font-normal opacity-75">{item.desc}</span>
                   </button>
                 ))}
               </div>
@@ -471,12 +489,17 @@ export default function StudentReportView() {
             </button>
           </div>
 
-          {/* Card 2: Live Reports in System */}
+          {/* Card 2: Track My Reports */}
           <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-xs space-y-4">
             <div className="flex items-center justify-between border-b border-slate-100 pb-3">
-              <h3 className="text-sm font-bold text-slate-900">
-                Recent Incident Records ({pastReports.length})
-              </h3>
+              <div>
+                <h3 className="text-sm font-bold text-slate-900">
+                  Track My Reports ({pastReports.length})
+                </h3>
+                <p className="text-[11px] text-slate-400">
+                  Live status of reports you have submitted
+                </p>
+              </div>
               <button
                 type="button"
                 onClick={fetchReports}
@@ -486,39 +509,63 @@ export default function StudentReportView() {
               </button>
             </div>
 
-            <div className="space-y-3 text-xs max-h-72 overflow-y-auto">
+            <div className="space-y-3 text-xs max-h-80 overflow-y-auto">
               {pastReports.length === 0 ? (
-                <div className="text-center py-4 text-slate-400 text-xs">
-                  No incident reports recorded yet.
+                <div className="text-center py-6 text-slate-400 text-xs">
+                  No incident reports submitted by you yet.
                 </div>
               ) : (
-                pastReports.slice(0, 4).map((inc) => (
-                  <div key={inc.id} className="p-3 bg-slate-50 rounded-xl border border-slate-100 space-y-1">
-                    <div className="flex items-center justify-between font-mono font-bold text-blue-700">
-                      <span>#INC-{inc.id}</span>
-                      <span
-                        className={`px-1.5 py-0.5 rounded text-[10px] font-bold ${
-                          inc.status === "RESOLVED"
-                            ? "bg-emerald-100 text-emerald-800"
-                            : inc.status === "DISPATCHED"
-                            ? "bg-blue-100 text-blue-800"
-                            : "bg-amber-100 text-amber-800"
-                        }`}
-                      >
-                        {inc.status}
-                      </span>
+                pastReports.map((inc) => {
+                  const s = inc.status?.toUpperCase().replace(" ", "_");
+                  return (
+                    <div
+                      key={inc.id}
+                      onClick={() => {
+                        setSelectedIncidentId(inc.id);
+                        setIsModalOpen(true);
+                      }}
+                      className="p-3 bg-slate-50 hover:bg-blue-50/50 rounded-xl border border-slate-200/80 transition cursor-pointer space-y-1 group"
+                    >
+                      <div className="flex items-center justify-between font-mono font-bold">
+                        <span className="text-blue-700 group-hover:underline">#INC-{inc.id}</span>
+                        <span
+                          className={`px-2 py-0.5 rounded text-[10px] font-bold ${
+                            s === "RESOLVED"
+                              ? "bg-emerald-100 text-emerald-800 border border-emerald-200"
+                              : s === "DISPATCHED"
+                              ? "bg-sky-100 text-sky-800 border border-sky-200"
+                              : s === "IN_PROGRESS"
+                              ? "bg-indigo-100 text-indigo-800 border border-indigo-200"
+                              : "bg-amber-100 text-amber-800 border border-amber-200"
+                          }`}
+                        >
+                          {s === "IN_PROGRESS" ? "IN PROGRESS" : inc.status}
+                        </span>
+                      </div>
+                      <div className="font-bold text-slate-900 line-clamp-1">{inc.title}</div>
+                      <div className="text-[11px] text-slate-500 flex items-center justify-between">
+                        <span className="truncate max-w-[170px]">{inc.location}</span>
+                        <span>{new Date(inc.createdAt).toLocaleDateString()}</span>
+                      </div>
                     </div>
-                    <div className="font-bold text-slate-900 line-clamp-1">{inc.title}</div>
-                    <div className="text-[11px] text-slate-500">
-                      {inc.location} • {new Date(inc.createdAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
-                    </div>
-                  </div>
-                ))
+                  );
+                })
               )}
             </div>
           </div>
         </div>
       </div>
+
+      {/* Incident Details Modal for Tracking */}
+      <IncidentDetailsModal
+        isOpen={isModalOpen}
+        incidentId={selectedIncidentId}
+        canManageStatus={false}
+        onClose={() => {
+          setIsModalOpen(false);
+          setSelectedIncidentId(null);
+        }}
+      />
     </div>
   );
 }

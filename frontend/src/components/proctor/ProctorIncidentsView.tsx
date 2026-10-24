@@ -121,20 +121,24 @@ export default function ProctorIncidentsView() {
     }
   };
 
-  const handleDispatch = async (id: number) => {
+  const handleUpdateStatus = async (id: number, newStatus: string) => {
     try {
       const res = await fetch(API_ENDPOINTS.incidents.status(id), {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ status: "DISPATCHED" }),
+        body: JSON.stringify({ status: newStatus }),
       });
       if (res.ok) {
-        handleAction(`Patrol unit dispatched to incident #${id}.`);
+        handleAction(`Incident #${id} status updated to ${newStatus.replace("_", " ")}.`);
         fetchIncidents();
       }
     } catch {
-      handleAction("Failed to dispatch patrol.");
+      handleAction("Failed to update incident status.");
     }
+  };
+
+  const handleDispatch = async (id: number) => {
+    handleUpdateStatus(id, "DISPATCHED");
   };
 
   const handleEscalate = async (id: number) => {
@@ -251,7 +255,8 @@ export default function ProctorIncidentsView() {
           className="px-3 py-1.5 text-xs bg-white border border-slate-200 rounded-lg text-slate-700 cursor-pointer"
         >
           <option>All Statuses</option>
-          <option value="IN_TRIAGE">In Triage</option>
+          <option value="OPEN">Open</option>
+          <option value="IN_PROGRESS">In Progress</option>
           <option value="DISPATCHED">Dispatched</option>
           <option value="RESOLVED">Resolved</option>
         </select>
@@ -307,17 +312,36 @@ export default function ProctorIncidentsView() {
                       </span>
                     </td>
                     <td className="py-3.5 px-4">
-                      <span
-                        className={`px-2 py-0.5 rounded text-[10px] font-bold ${
-                          item.status === "RESOLVED"
-                            ? "bg-emerald-100 text-emerald-800"
-                            : item.status === "DISPATCHED"
-                            ? "bg-blue-100 text-blue-800"
-                            : "bg-amber-100 text-amber-800"
-                        }`}
-                      >
-                        {item.status}
-                      </span>
+                      {(() => {
+                        const s = item.status?.toUpperCase().replace(" ", "_");
+                        return (
+                          <div className="flex items-center gap-2">
+                            <span
+                              className={`px-2 py-0.5 rounded text-[10px] font-bold ${
+                                s === "RESOLVED"
+                                  ? "bg-emerald-100 text-emerald-800 border border-emerald-200"
+                                  : s === "DISPATCHED"
+                                  ? "bg-sky-100 text-sky-800 border border-sky-200"
+                                  : s === "IN_PROGRESS"
+                                  ? "bg-indigo-100 text-indigo-800 border border-indigo-200"
+                                  : "bg-amber-100 text-amber-800 border border-amber-200"
+                              }`}
+                            >
+                              {s === "IN_PROGRESS" ? "IN PROGRESS" : item.status}
+                            </span>
+                            <select
+                              value={s || "OPEN"}
+                              onChange={(e) => handleUpdateStatus(item.id, e.target.value)}
+                              className="text-[11px] font-semibold px-2 py-0.5 rounded border border-slate-200 bg-white text-slate-700 cursor-pointer hover:border-blue-500"
+                            >
+                              <option value="OPEN">Open</option>
+                              <option value="IN_PROGRESS">In Progress</option>
+                              <option value="DISPATCHED">Dispatched</option>
+                              <option value="RESOLVED">Resolved</option>
+                            </select>
+                          </div>
+                        );
+                      })()}
                     </td>
                     <td className="py-3.5 px-4 text-slate-700">
                       <div>{item.reporterName || "Unknown"}</div>
@@ -356,7 +380,7 @@ export default function ProctorIncidentsView() {
                         )}
                         {item.status === "RESOLVED" && (
                           <span className="text-[11px] font-bold text-emerald-700">
-                            Closed
+                            Resolved
                           </span>
                         )}
                       </div>

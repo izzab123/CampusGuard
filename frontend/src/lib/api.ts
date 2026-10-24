@@ -21,6 +21,14 @@ export const API_ENDPOINTS = {
   incidents: {
     base: `${getApiUrl()}/api/incidents`,
     list: `${getApiUrl()}/api/incidents`,
+    myReports: (email?: string, role?: string) => {
+      const params = new URLSearchParams();
+      if (email) params.set("email", email);
+      if (role) params.set("role", role);
+      const q = params.toString();
+      return q ? `${getApiUrl()}/api/incidents/my-reports?${q}` : `${getApiUrl()}/api/incidents/my-reports`;
+    },
+    byId: (id: number | string) => `${getApiUrl()}/api/incidents/${id}`,
     resolve: (id: number | string) => `${getApiUrl()}/api/incidents/${id}/resolve`,
     status: (id: number | string) => `${getApiUrl()}/api/incidents/${id}/status`,
     escalate: (id: number | string) => `${getApiUrl()}/api/incidents/${id}/escalate`,
@@ -31,6 +39,14 @@ export const API_ENDPOINTS = {
     checkIn: `${getApiUrl()}/api/shifts/check-in`,
     checkout: (id: number | string) => `${getApiUrl()}/api/shifts/${id}/checkout`,
     escalate: (id: number | string) => `${getApiUrl()}/api/shifts/${id}/escalate`,
+    reportAbsence: (id: number | string, reason?: string) => `${getApiUrl()}/api/shifts/${id}/report-absence${reason ? `?reason=${encodeURIComponent(reason)}` : ""}`,
+    checkAbsences: `${getApiUrl()}/api/shifts/check-absences`,
+  },
+  handoffs: {
+    base: `${getApiUrl()}/api/handoffs`,
+    list: `${getApiUrl()}/api/handoffs`,
+    latest: `${getApiUrl()}/api/handoffs/latest`,
+    byId: (id: number | string) => `${getApiUrl()}/api/handoffs/${id}`,
   },
   dutyRoster: {
     base: `${getApiUrl()}/api/duty-roster`,
@@ -56,10 +72,25 @@ export const API_ENDPOINTS = {
   },
   notifications: {
     base: `${getApiUrl()}/api/notifications`,
-    list: (role?: string) => role ? `${getApiUrl()}/api/notifications?role=${encodeURIComponent(role)}` : `${getApiUrl()}/api/notifications`,
-    byRole: (role: string) => `${getApiUrl()}/api/notifications?role=${encodeURIComponent(role)}`,
+    list: (role?: string, email?: string) => {
+      const params = new URLSearchParams();
+      if (role) params.set("role", role);
+      if (email) params.set("email", email);
+      const q = params.toString();
+      return q ? `${getApiUrl()}/api/notifications?${q}` : `${getApiUrl()}/api/notifications`;
+    },
+    byRole: (role: string, email?: string) => {
+      const params = new URLSearchParams();
+      params.set("role", role);
+      if (email) params.set("email", email);
+      return `${getApiUrl()}/api/notifications?${params.toString()}`;
+    },
     read: (id: number | string) => `${getApiUrl()}/api/notifications/${id}/read`,
     markRead: (id: number | string) => `${getApiUrl()}/api/notifications/${id}/read`,
+    markUnread: (id: number | string) => `${getApiUrl()}/api/notifications/${id}/unread`,
+    toggleRead: (id: number | string) => `${getApiUrl()}/api/notifications/${id}/toggle-read`,
+    markAllRead: (role?: string) => role ? `${getApiUrl()}/api/notifications/mark-all-read?role=${encodeURIComponent(role)}` : `${getApiUrl()}/api/notifications/mark-all-read`,
+    guardAbsence: `${getApiUrl()}/api/notifications/guard-absence`,
   },
   attendance: {
     config: `${getApiUrl()}/api/attendance/config`,
