@@ -215,4 +215,16 @@ public class ShiftHandoff {
 
     public LocalDateTime getUpdatedAt() { return updatedAt; }
     public void setUpdatedAt(LocalDateTime updatedAt) { this.updatedAt = updatedAt; }
+
+    // Logbook & Supervisor Audit Convenience Accessors
+    public Long getIncomingGuardId() { return acknowledgedByGuardId; }
+    public String getIncomingGuardName() { return acknowledgedByGuardName; }
+    public String getIncomingGuardBadge() { return acknowledgedByGuardBadge; }
+    public String getAcknowledgementStatus() { return status; }
+    public LocalDate getDate() { return shiftDate; }
+    public String getShift() { return shiftType; }
+    public String getGate() { return gatePost; }
+    public String getOutgoingGuard() { return outgoingGuardName; }
+    public String getIncomingGuard() { return acknowledgedByGuardName; }
+    public boolean isReadOnly() { return true; }
 }
