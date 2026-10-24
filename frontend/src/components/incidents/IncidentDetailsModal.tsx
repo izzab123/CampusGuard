@@ -118,15 +118,15 @@ export default function IncidentDetailsModal({
 
   const getSeverityBadge = (sev: string) => {
     const s = sev?.toUpperCase();
-    if (s === "CRITICAL" || s === "HIGH") {
+    if (s === "CRITICAL" || s === "HIGH" || s === "MAJOR") {
       return (
         <span className="px-2.5 py-1 rounded-full text-xs font-bold bg-red-100 text-red-800 border border-red-200 flex items-center gap-1.5">
           <AlertTriangle className="w-3.5 h-3.5 text-red-600" />
-          <span>{s || "HIGH"}</span>
+          <span>{s === "MAJOR" ? "MAJOR" : (s || "HIGH")}</span>
         </span>
       );
     }
-    if (s === "MEDIUM") {
+    if (s === "MEDIUM" || s === "MODERATE") {
       return (
         <span className="px-2.5 py-1 rounded-full text-xs font-bold bg-amber-100 text-amber-800 border border-amber-200 flex items-center gap-1.5">
           <AlertTriangle className="w-3.5 h-3.5 text-amber-600" />
@@ -137,7 +137,7 @@ export default function IncidentDetailsModal({
     return (
       <span className="px-2.5 py-1 rounded-full text-xs font-bold bg-blue-100 text-blue-800 border border-blue-200 flex items-center gap-1.5">
         <ShieldAlert className="w-3.5 h-3.5 text-blue-600" />
-        <span>LOW</span>
+        <span>{s === "MINOR" ? "MINOR" : (s || "LOW")}</span>
       </span>
     );
   };
