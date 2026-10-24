@@ -11,4 +11,6 @@ public interface IncidentReportRepository extends JpaRepository<IncidentReport, 
     List<IncidentReport> findByStatus(String status);
     List<IncidentReport> findByRoutedTo(String routedTo);
     List<IncidentReport> findAllByOrderByCreatedAtDesc();
+    List<IncidentReport> findByReporterEmailIgnoreCaseOrderByCreatedAtDesc(String reporterEmail);
+    List<IncidentReport> findByReporterRoleIgnoreCaseOrderByCreatedAtDesc(String reporterRole);
 }

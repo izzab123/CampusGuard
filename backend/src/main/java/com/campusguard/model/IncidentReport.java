@@ -37,7 +37,7 @@ public class IncidentReport {
 
     public IncidentReport() {
         this.createdAt = LocalDateTime.now();
-        this.status = "REPORTED";
+        this.status = "OPEN";
     }
 
     public IncidentReport(String title, String description, String severity, String location, String routedTo, String reporterName, String reporterRole) {
@@ -63,7 +63,7 @@ public class IncidentReport {
             this.severity = "MEDIUM";
         }
         if (this.status == null || this.status.isBlank()) {
-            this.status = "IN_TRIAGE";
+            this.status = "OPEN";
         }
         if (this.description == null) {
             this.description = "";
