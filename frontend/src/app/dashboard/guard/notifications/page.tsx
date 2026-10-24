@@ -11,8 +11,9 @@ import {
   CheckCircle2,
   AlertTriangle
 } from "lucide-react";
-import { performLogout } from "@/lib/auth";
+import { performLogout, getStoredAuthUser } from "@/lib/auth";
 import { API_ENDPOINTS } from "@/lib/api";
+import IncidentDetailsModal from "@/components/incidents/IncidentDetailsModal";
 
 interface NotificationItem {
   id: number;
@@ -20,6 +21,7 @@ interface NotificationItem {
   message: string;
   category: string;
   priority: string;
+  incidentId?: number;
   isRead: boolean;
   createdAt: string;
 }
@@ -28,13 +30,20 @@ export default function GuardNotificationsPage() {
   const [notifications, setNotifications] = useState<NotificationItem[]>([]);
   const [activeTab, setActiveTab] = useState("All");
   const [actionNotice, setActionNotice] = useState<string | null>(null);
+  const [selectedIncidentId, setSelectedIncidentId] = useState<number | null>(null);
+  const [isModalOpen, setIsModalOpen] = useState(false);
 
   const fetchNotifications = async () => {
     try {
-      const res = await fetch(API_ENDPOINTS.notifications.byRole("Security Guard"));
+      const user = getStoredAuthUser();
+      const res = await fetch(API_ENDPOINTS.notifications.byRole("Security Guard", user?.email || undefined));
       if (res.ok) {
         const data = await res.json();
-        setNotifications(data);
+        const normalized = (Array.isArray(data) ? data : []).map((n: any) => ({
+          ...n,
+          isRead: Boolean(n.isRead ?? n.read ?? false),
+        }));
+        setNotifications(normalized);
       }
     } catch {}
   };
@@ -42,6 +51,16 @@ export default function GuardNotificationsPage() {
   useEffect(() => {
     fetchNotifications();
   }, []);
+
+  const handleOpenIncident = (notif: NotificationItem) => {
+    if (notif.incidentId) {
+      setSelectedIncidentId(notif.incidentId);
+      setIsModalOpen(true);
+      if (!notif.isRead) {
+        handleMarkAsRead(notif.id);
+      }
+    }
+  };
 
   const handleMarkAsRead = async (id: number) => {
     try {
@@ -182,7 +201,7 @@ export default function GuardNotificationsPage() {
                   !item.isRead ? "border-blue-300 bg-blue-50/20" : "border-slate-200"
                 }`}
               >
-                <div className="space-y-1.5">
+                <div className="space-y-1.5 flex-1">
                   <div className="flex items-center gap-2 flex-wrap">
                     <span
                       className={`px-2 py-0.5 rounded text-[10px] font-bold ${
@@ -197,6 +216,11 @@ export default function GuardNotificationsPage() {
                     {!item.isRead && (
                       <span className="w-2 h-2 rounded-full bg-blue-600"></span>
                     )}
+                    {item.incidentId && (
+                      <span className="px-2 py-0.5 rounded text-[10px] font-mono font-bold bg-slate-100 text-slate-700">
+                        #INC-{item.incidentId}
+                      </span>
+                    )}
                   </div>
                   <p className="text-xs text-slate-600 leading-relaxed max-w-3xl">
                     {item.message}
@@ -206,20 +230,43 @@ export default function GuardNotificationsPage() {
                   </div>
                 </div>
 
-                {!item.isRead && (
-                  <button
-                    type="button"
-                    onClick={() => handleMarkAsRead(item.id)}
-                    className="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs rounded-lg transition cursor-pointer self-start shrink-0"
-                  >
-                    Acknowledge
-                  </button>
-                )}
+                <div className="flex items-center gap-2 self-start shrink-0 flex-wrap">
+                  {item.incidentId && (
+                    <button
+                      type="button"
+                      onClick={() => handleOpenIncident(item)}
+                      className="px-3 py-1.5 bg-[#0a2f77] hover:bg-[#082660] text-white font-bold text-xs rounded-lg transition cursor-pointer flex items-center gap-1.5 shadow-2xs"
+                    >
+                      <span>View Details</span>
+                    </button>
+                  )}
+
+                  {!item.isRead && (
+                    <button
+                      type="button"
+                      onClick={() => handleMarkAsRead(item.id)}
+                      className="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs rounded-lg transition cursor-pointer"
+                    >
+                      Acknowledge
+                    </button>
+                  )}
+                </div>
               </div>
             ))
           )}
         </div>
       </main>
+
+      {/* Incident Details Modal */}
+      <IncidentDetailsModal
+        isOpen={isModalOpen}
+        incidentId={selectedIncidentId}
+        canManageStatus={true}
+        onClose={() => {
+          setIsModalOpen(false);
+          setSelectedIncidentId(null);
+        }}
+      />
     </div>
   );
 }

@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
@@ -10,7 +10,6 @@ import {
   Lock,
   Eye,
   EyeOff,
-  ChevronDown,
   ArrowRight,
   Mail,
   AlertCircle,
@@ -25,33 +24,9 @@ export default function LoginPage() {
   const [showPassword, setShowPassword] = useState(false);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [role, setRole] = useState("");
-  const [availableRoles, setAvailableRoles] = useState<string[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
-
-  useEffect(() => {
-    fetch(`${getApiUrl()}/api/auth/roles`)
-      .then((res) => {
-        if (!res.ok) throw new Error("Failed to load roles");
-        return res.json();
-      })
-      .then((roles) => {
-        if (Array.isArray(roles)) {
-          setAvailableRoles(roles);
-        }
-      })
-      .catch(() => {
-        setAvailableRoles([
-          "Student",
-          "Proctor and DSW",
-          "Security Guard",
-          "Shift Supervisor",
-          "Admin",
-        ]);
-      });
-  }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -69,7 +44,6 @@ export default function LoginPage() {
         body: JSON.stringify({
           email: email.trim(),
           password,
-          role: role || undefined,
         }),
       });
 
@@ -249,40 +223,6 @@ export default function LoginPage() {
               </div>
             </div>
 
-            {/* Field 3: Institutional Role */}
-            <div>
-              <div className="flex items-center justify-between text-xs mb-1.5">
-                <label htmlFor="role" className="font-semibold text-slate-800">
-                  Assigned Clearance Role
-                </label>
-                <span className="text-slate-400">Optional (Auto-detected)</span>
-              </div>
-              <div className="relative">
-                <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400">
-                  <Shield className="w-4 h-4" />
-                </div>
-                <select
-                  id="role"
-                  value={role}
-                  onChange={(e) => setRole(e.target.value)}
-                  className={`w-full pl-10 pr-10 py-2.5 text-sm bg-white border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-600 focus:border-transparent appearance-none transition cursor-pointer ${
-                    role ? "text-slate-900 font-medium" : "text-slate-400"
-                  }`}
-                >
-                  <option value="">
-                    Auto-detect role from credentials (or choose)
-                  </option>
-                  {availableRoles.map((r) => (
-                    <option key={r} value={r}>
-                      {r}
-                    </option>
-                  ))}
-                </select>
-                <div className="absolute inset-y-0 right-0 pr-3.5 flex items-center pointer-events-none text-slate-400">
-                  <ChevronDown className="w-4 h-4" />
-                </div>
-              </div>
-            </div>
 
             {/* Sign In Button */}
             <div className="pt-2">

@@ -25,6 +25,7 @@ import {
 } from "lucide-react";
 import { getStoredAuthUser, performLogout, AuthUser } from "@/lib/auth";
 import { API_ENDPOINTS } from "@/lib/api";
+import IncidentDetailsModal from "@/components/incidents/IncidentDetailsModal";
 
 interface NotificationItem {
   id: number;
@@ -34,6 +35,7 @@ interface NotificationItem {
   priority?: string;
   recipientRole?: string;
   recipientEmail?: string;
+  incidentId?: number;
   isRead: boolean;
   read?: boolean;
   createdAt: string;
@@ -53,6 +55,18 @@ export default function SupervisorNotificationsPage() {
   const [notice, setNotice] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [isScanning, setIsScanning] = useState(false);
+  const [selectedIncidentId, setSelectedIncidentId] = useState<number | null>(null);
+  const [isIncidentModalOpen, setIsIncidentModalOpen] = useState(false);
+
+  const handleOpenIncident = (item: NotificationItem) => {
+    if (item.incidentId) {
+      setSelectedIncidentId(item.incidentId);
+      setIsIncidentModalOpen(true);
+      if (!item.isRead) {
+        handleToggleRead(item.id, false);
+      }
+    }
+  };
 
   useEffect(() => {
     setUser(getStoredAuthUser());
@@ -663,7 +677,18 @@ export default function SupervisorNotificationsPage() {
                       </div>
                     </div>
 
-                    <div className="flex items-center gap-2 self-start shrink-0">
+                    <div className="flex items-center gap-2 self-start shrink-0 flex-wrap">
+                      {item.incidentId && (
+                        <button
+                          type="button"
+                          onClick={() => handleOpenIncident(item)}
+                          className="px-3 py-1.5 bg-[#0a2f77] hover:bg-[#082660] text-white font-bold text-xs rounded-lg transition cursor-pointer flex items-center gap-1.5 shadow-2xs"
+                        >
+                          <ShieldAlert className="w-3.5 h-3.5" />
+                          <span>View Incident Details</span>
+                        </button>
+                      )}
+
                       <button
                         type="button"
                         onClick={() => handleToggleRead(item.id, item.isRead)}
@@ -692,6 +717,17 @@ export default function SupervisorNotificationsPage() {
           </div>
         </main>
       </div>
+
+      {/* Incident Details Modal */}
+      <IncidentDetailsModal
+        isOpen={isIncidentModalOpen}
+        incidentId={selectedIncidentId}
+        canManageStatus={true}
+        onClose={() => {
+          setIsIncidentModalOpen(false);
+          setSelectedIncidentId(null);
+        }}
+      />
     </div>
   );
 }

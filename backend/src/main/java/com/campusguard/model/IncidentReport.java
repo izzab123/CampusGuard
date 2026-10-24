@@ -29,6 +29,8 @@ public class IncidentReport {
 
     private String reporterName;
     private String reporterRole; // GUARD, STUDENT, SUPERVISOR, STAFF
+    private String reporterEmail;
+    private String category;
 
     private LocalDateTime createdAt;
     private LocalDateTime resolvedAt;
@@ -98,6 +100,12 @@ public class IncidentReport {
 
     public String getReporterRole() { return reporterRole; }
     public void setReporterRole(String reporterRole) { this.reporterRole = reporterRole; }
+
+    public String getReporterEmail() { return reporterEmail; }
+    public void setReporterEmail(String reporterEmail) { this.reporterEmail = reporterEmail; }
+
+    public String getCategory() { return category; }
+    public void setCategory(String category) { this.category = category; }
 
     public LocalDateTime getCreatedAt() { return createdAt; }
     public void setCreatedAt(LocalDateTime createdAt) { this.createdAt = createdAt; }
