@@ -125,6 +125,13 @@ export default function StudentDashboardView() {
             <span>Register Vehicle</span>
           </Link>
           <Link
+            href="/dashboard/student/park-vehicle"
+            className="px-3.5 py-2 bg-emerald-50 border border-emerald-200 hover:bg-emerald-100 text-emerald-800 font-bold text-xs rounded-lg flex items-center gap-1.5 shadow-xs transition cursor-pointer"
+          >
+            <Car className="w-3.5 h-3.5" />
+            <span>Park Vehicle</span>
+          </Link>
+          <Link
             href="/dashboard/student/qr"
             className="px-3.5 py-2 bg-blue-50 border border-blue-200 hover:bg-blue-100 text-blue-800 font-bold text-xs rounded-lg flex items-center gap-1.5 shadow-xs transition cursor-pointer"
           >

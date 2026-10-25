@@ -44,6 +44,9 @@ public class VehicleRegistration {
 
     private String rejectionReason;
 
+    @Column(unique = true)
+    private String qrCode;
+
     public VehicleRegistration() {
         this.createdAt = LocalDateTime.now();
         this.status = "Pending approval";
@@ -101,4 +104,7 @@ public class VehicleRegistration {
 
     public String getRejectionReason() { return rejectionReason; }
     public void setRejectionReason(String rejectionReason) { this.rejectionReason = rejectionReason; }
+
+    public String getQrCode() { return qrCode; }
+    public void setQrCode(String qrCode) { this.qrCode = qrCode; }
 }
