@@ -22,10 +22,12 @@ import {
   CalendarDays,
   MapPin,
   ChevronRight,
-  RotateCcw
+  RotateCcw,
+  CheckCircle2
 } from "lucide-react";
 import { performLogout, getStoredAuthUser, AuthUser } from "@/lib/auth";
 import { API_ENDPOINTS } from "@/lib/api";
+import VehicleDetailsModal from "@/components/vehicles/VehicleDetailsModal";
 
 interface IncidentItem {
   id: number;
@@ -60,6 +62,11 @@ export default function SecurityGuardDashboard() {
   const [todayDuty, setTodayDuty] = useState<DutyRosterShift | null>(null);
   const [upcomingDuties, setUpcomingDuties] = useState<DutyRosterShift[]>([]);
   const [isLiveSyncing, setIsLiveSyncing] = useState<boolean>(false);
+  const [pendingVehicles, setPendingVehicles] = useState<any[]>([]);
+  const [selectedVehicleId, setSelectedVehicleId] = useState<number | null>(null);
+  const [isVehicleModalOpen, setIsVehicleModalOpen] = useState(false);
+  const [approvingVehicleId, setApprovingVehicleId] = useState<number | null>(null);
+  const [guardNotice, setGuardNotice] = useState<string | null>(null);
 
   const fetchGuardTelemetry = useCallback(async () => {
     const stored = getStoredAuthUser();
@@ -115,8 +122,42 @@ export default function SecurityGuardDashboard() {
           setUpcomingDuties(data.upcomingDuties || []);
         }
       }
+
+      // 5. Pending vehicle registrations
+      const vehRes = await fetch(API_ENDPOINTS.vehicles.list("Pending approval"));
+      if (vehRes.ok) {
+        const vehData = await vehRes.json();
+        setPendingVehicles(Array.isArray(vehData) ? vehData : []);
+      }
     } catch {}
   }, []);
+
+  const handleApproveVehicle = async (id: number) => {
+    setApprovingVehicleId(id);
+    try {
+      const stored = getStoredAuthUser();
+      const approverName = stored?.fullName || stored?.name || "Officer Marcus Vance";
+      const res = await fetch(API_ENDPOINTS.vehicles.approve(id), {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ approvedBy: approverName }),
+      });
+      if (res.ok) {
+        setGuardNotice("Vehicle registration approved! Notifications dispatched to Shift Supervisor and Admin.");
+        setTimeout(() => setGuardNotice(null), 5000);
+        fetchGuardTelemetry();
+      } else {
+        const err = await res.json();
+        setGuardNotice(err.message || "Failed to approve registration.");
+        setTimeout(() => setGuardNotice(null), 5000);
+      }
+    } catch {
+      setGuardNotice("Network error approving vehicle registration.");
+      setTimeout(() => setGuardNotice(null), 5000);
+    } finally {
+      setApprovingVehicleId(null);
+    }
+  };
 
   useEffect(() => {
     setUser(getStoredAuthUser());
@@ -307,6 +348,19 @@ export default function SecurityGuardDashboard() {
 
         {/* MAIN FEED */}
         <main className="flex-1 space-y-5">
+          {guardNotice && (
+            <div className="p-3.5 bg-blue-50 border border-blue-200 rounded-xl text-xs font-semibold text-blue-900 flex items-center justify-between shadow-xs animate-in fade-in">
+              <span>{guardNotice}</span>
+              <button
+                type="button"
+                onClick={() => setGuardNotice(null)}
+                className="text-blue-700 hover:text-blue-900 font-bold ml-2 cursor-pointer"
+              >
+                ✕
+              </button>
+            </div>
+          )}
+
           <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
             <div>
               <div className="flex items-center gap-2 text-[11px] font-bold tracking-wider text-blue-800 uppercase">
@@ -488,6 +542,85 @@ export default function SecurityGuardDashboard() {
             </div>
           </div>
 
+          {/* PENDING VEHICLE REGISTRATION APPROVALS CARD */}
+          <div className="bg-white border-2 border-amber-400/80 rounded-2xl p-5 shadow-xs space-y-4">
+            <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+              <div className="flex items-center gap-2">
+                <Car className="w-4 h-4 text-amber-600" />
+                <h2 className="text-sm font-bold text-slate-900">
+                  Pending Vehicle Registration Approvals ({pendingVehicles.length})
+                </h2>
+                <span className="text-[10px] bg-amber-100 text-amber-800 font-bold px-2 py-0.5 rounded-full">
+                  APPROVAL REQUIRED
+                </span>
+              </div>
+              <Link
+                href="/dashboard/guard/notifications"
+                className="text-xs font-bold text-blue-700 hover:underline"
+              >
+                View Dispatch Notifications →
+              </Link>
+            </div>
+
+            {pendingVehicles.length === 0 ? (
+              <div className="py-6 text-center text-xs text-slate-400">
+                All vehicle registrations reviewed. No pending student approvals.
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {pendingVehicles.map((veh) => (
+                  <div
+                    key={veh.id}
+                    className="p-4 bg-slate-50 border border-slate-200 rounded-xl flex flex-col sm:flex-row sm:items-center justify-between gap-3"
+                  >
+                    <div className="space-y-1">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <span className="font-mono font-extrabold text-sm text-slate-900">
+                          {veh.vehicleNumber}
+                        </span>
+                        <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-amber-100 text-amber-800 border border-amber-200">
+                          {veh.status}
+                        </span>
+                        <span className="text-[11px] font-semibold text-slate-600">
+                          {veh.vehicleType}
+                        </span>
+                      </div>
+                      <div className="text-xs text-slate-600">
+                        Owner: <strong className="text-slate-800">{veh.ownerName}</strong> • Student ID: <strong className="text-slate-800 font-mono">{veh.studentId}</strong> • Contact: <strong className="text-slate-800 font-mono">{veh.contactNumber}</strong>
+                      </div>
+                      <div className="text-[10px] text-slate-400">
+                        Submitted: {new Date(veh.createdAt).toLocaleString()}
+                      </div>
+                    </div>
+
+                    <div className="flex items-center gap-2 shrink-0">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setSelectedVehicleId(veh.id);
+                          setIsVehicleModalOpen(true);
+                        }}
+                        className="px-3 py-1.5 bg-white border border-slate-300 hover:bg-slate-100 text-slate-700 font-bold text-xs rounded-lg transition cursor-pointer shadow-2xs"
+                      >
+                        View Details
+                      </button>
+
+                      <button
+                        type="button"
+                        disabled={approvingVehicleId === veh.id}
+                        onClick={() => handleApproveVehicle(veh.id)}
+                        className="px-4 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs rounded-lg transition cursor-pointer flex items-center gap-1.5 shadow-2xs disabled:opacity-50"
+                      >
+                        <CheckCircle2 className="w-3.5 h-3.5" />
+                        <span>{approvingVehicleId === veh.id ? "Approving..." : "Approve Registration"}</span>
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
           {/* RECENT FIELD ACTIVITY */}
           <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-xs space-y-3">
             <div className="flex items-center justify-between border-b border-slate-100 pb-3">
@@ -517,6 +650,22 @@ export default function SecurityGuardDashboard() {
           </div>
         </main>
       </div>
+
+      {/* Vehicle Details Modal */}
+      <VehicleDetailsModal
+        isOpen={isVehicleModalOpen}
+        vehicleId={selectedVehicleId}
+        canApprove={true}
+        onApproved={() => {
+          fetchGuardTelemetry();
+          setGuardNotice("Vehicle registration approved! Notifications dispatched to Shift Supervisor and Admin.");
+          setTimeout(() => setGuardNotice(null), 5000);
+        }}
+        onClose={() => {
+          setIsVehicleModalOpen(false);
+          setSelectedVehicleId(null);
+        }}
+      />
     </div>
   );
 }

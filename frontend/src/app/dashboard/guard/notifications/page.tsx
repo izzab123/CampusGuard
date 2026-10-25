@@ -14,6 +14,7 @@ import {
 import { performLogout, getStoredAuthUser } from "@/lib/auth";
 import { API_ENDPOINTS } from "@/lib/api";
 import IncidentDetailsModal from "@/components/incidents/IncidentDetailsModal";
+import VehicleDetailsModal from "@/components/vehicles/VehicleDetailsModal";
 
 interface NotificationItem {
   id: number;
@@ -22,6 +23,7 @@ interface NotificationItem {
   category: string;
   priority: string;
   incidentId?: number;
+  vehicleRegistrationId?: number;
   isRead: boolean;
   createdAt: string;
 }
@@ -32,6 +34,9 @@ export default function GuardNotificationsPage() {
   const [actionNotice, setActionNotice] = useState<string | null>(null);
   const [selectedIncidentId, setSelectedIncidentId] = useState<number | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [selectedVehicleId, setSelectedVehicleId] = useState<number | null>(null);
+  const [isVehicleModalOpen, setIsVehicleModalOpen] = useState(false);
+  const [approvingVehicleId, setApprovingVehicleId] = useState<number | null>(null);
 
   const fetchNotifications = async () => {
     try {
@@ -59,6 +64,42 @@ export default function GuardNotificationsPage() {
       if (!notif.isRead) {
         handleMarkAsRead(notif.id);
       }
+    }
+  };
+
+  const handleOpenVehicle = (notif: NotificationItem) => {
+    if (notif.vehicleRegistrationId) {
+      setSelectedVehicleId(notif.vehicleRegistrationId);
+      setIsVehicleModalOpen(true);
+      if (!notif.isRead) {
+        handleMarkAsRead(notif.id);
+      }
+    }
+  };
+
+  const handleApproveVehicle = async (notif: NotificationItem) => {
+    if (!notif.vehicleRegistrationId) return;
+    setApprovingVehicleId(notif.vehicleRegistrationId);
+    try {
+      const user = getStoredAuthUser();
+      const approverName = user?.fullName || user?.name || "Security Guard";
+      const res = await fetch(API_ENDPOINTS.vehicles.approve(notif.vehicleRegistrationId), {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ approvedBy: approverName }),
+      });
+      if (res.ok) {
+        handleAction("Vehicle registration approved! Notifications sent to Supervisor and Admin.");
+        handleMarkAsRead(notif.id);
+        fetchNotifications();
+      } else {
+        const err = await res.json();
+        handleAction(err.message || "Failed to approve registration.");
+      }
+    } catch {
+      handleAction("Network error approving vehicle registration.");
+    } finally {
+      setApprovingVehicleId(null);
     }
   };
 
@@ -221,6 +262,11 @@ export default function GuardNotificationsPage() {
                         #INC-{item.incidentId}
                       </span>
                     )}
+                    {item.vehicleRegistrationId && (
+                      <span className="px-2 py-0.5 rounded text-[10px] font-mono font-bold bg-amber-100 text-amber-800 border border-amber-300">
+                        #VEH-{item.vehicleRegistrationId}
+                      </span>
+                    )}
                   </div>
                   <p className="text-xs text-slate-600 leading-relaxed max-w-3xl">
                     {item.message}
@@ -239,6 +285,27 @@ export default function GuardNotificationsPage() {
                     >
                       <span>View Details</span>
                     </button>
+                  )}
+
+                  {item.vehicleRegistrationId && (
+                    <>
+                      <button
+                        type="button"
+                        onClick={() => handleOpenVehicle(item)}
+                        className="px-3 py-1.5 bg-[#0a2f77] hover:bg-[#082660] text-white font-bold text-xs rounded-lg transition cursor-pointer flex items-center gap-1.5 shadow-2xs"
+                      >
+                        <span>View Details</span>
+                      </button>
+                      <button
+                        type="button"
+                        disabled={approvingVehicleId === item.vehicleRegistrationId}
+                        onClick={() => handleApproveVehicle(item)}
+                        className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs rounded-lg transition cursor-pointer flex items-center gap-1.5 shadow-2xs disabled:opacity-50"
+                      >
+                        <CheckCircle2 className="w-3.5 h-3.5" />
+                        <span>{approvingVehicleId === item.vehicleRegistrationId ? "Approving..." : "Approve Registration"}</span>
+                      </button>
+                    </>
                   )}
 
                   {!item.isRead && (
@@ -265,6 +332,21 @@ export default function GuardNotificationsPage() {
         onClose={() => {
           setIsModalOpen(false);
           setSelectedIncidentId(null);
+        }}
+      />
+
+      {/* Vehicle Details Modal with Guard Approval option */}
+      <VehicleDetailsModal
+        isOpen={isVehicleModalOpen}
+        vehicleId={selectedVehicleId}
+        canApprove={true}
+        onApproved={() => {
+          fetchNotifications();
+          handleAction("Vehicle registration approved successfully!");
+        }}
+        onClose={() => {
+          setIsVehicleModalOpen(false);
+          setSelectedVehicleId(null);
         }}
       />
     </div>

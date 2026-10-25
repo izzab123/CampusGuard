@@ -9,10 +9,12 @@ import {
   ShieldAlert,
   Sliders,
   Check,
-  FileText
+  FileText,
+  Car
 } from "lucide-react";
 import { API_ENDPOINTS } from "@/lib/api";
 import IncidentDetailsModal from "@/components/incidents/IncidentDetailsModal";
+import VehicleDetailsModal from "@/components/vehicles/VehicleDetailsModal";
 
 interface NotificationItem {
   id: number;
@@ -22,6 +24,7 @@ interface NotificationItem {
   priority: string;
   recipientRole?: string;
   incidentId?: number;
+  vehicleRegistrationId?: number;
   isRead: boolean;
   createdAt: string;
 }
@@ -32,6 +35,8 @@ export default function AdminNotificationsView() {
   const [actionNotice, setActionNotice] = useState<string | null>(null);
   const [selectedIncidentId, setSelectedIncidentId] = useState<number | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [selectedVehicleId, setSelectedVehicleId] = useState<number | null>(null);
+  const [isVehicleModalOpen, setIsVehicleModalOpen] = useState(false);
 
   const fetchNotifications = async () => {
     try {
@@ -55,6 +60,16 @@ export default function AdminNotificationsView() {
     if (notif.incidentId) {
       setSelectedIncidentId(notif.incidentId);
       setIsModalOpen(true);
+      if (!notif.isRead) {
+        handleMarkAsRead(notif.id);
+      }
+    }
+  };
+
+  const handleOpenVehicle = (notif: NotificationItem) => {
+    if (notif.vehicleRegistrationId) {
+      setSelectedVehicleId(notif.vehicleRegistrationId);
+      setIsVehicleModalOpen(true);
       if (!notif.isRead) {
         handleMarkAsRead(notif.id);
       }
@@ -186,6 +201,11 @@ export default function AdminNotificationsView() {
                       #INC-{item.incidentId}
                     </span>
                   )}
+                  {item.vehicleRegistrationId && (
+                    <span className="px-2 py-0.5 rounded text-[10px] font-mono font-bold bg-emerald-100 text-emerald-800 border border-emerald-300">
+                      #VEH-{item.vehicleRegistrationId}
+                    </span>
+                  )}
                 </div>
                 <p className="text-xs text-slate-600 leading-relaxed max-w-3xl">
                   {item.message}
@@ -196,6 +216,17 @@ export default function AdminNotificationsView() {
               </div>
 
               <div className="flex items-center gap-2 self-start shrink-0 flex-wrap">
+                {item.vehicleRegistrationId && (
+                  <button
+                    type="button"
+                    onClick={() => handleOpenVehicle(item)}
+                    className="px-3 py-1.5 bg-[#0a2f77] hover:bg-[#082660] text-white font-bold text-xs rounded-lg transition cursor-pointer flex items-center gap-1.5 shadow-2xs"
+                  >
+                    <Car className="w-3.5 h-3.5" />
+                    <span>View Vehicle Details</span>
+                  </button>
+                )}
+
                 {item.incidentId && (
                   <button
                     type="button"
@@ -230,6 +261,17 @@ export default function AdminNotificationsView() {
         onClose={() => {
           setIsModalOpen(false);
           setSelectedIncidentId(null);
+        }}
+      />
+
+      {/* Vehicle Details Modal */}
+      <VehicleDetailsModal
+        isOpen={isVehicleModalOpen}
+        vehicleId={selectedVehicleId}
+        canApprove={false}
+        onClose={() => {
+          setIsVehicleModalOpen(false);
+          setSelectedVehicleId(null);
         }}
       />
     </div>

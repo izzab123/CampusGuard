@@ -118,6 +118,13 @@ export default function StudentDashboardView() {
 
         <div className="flex items-center gap-2.5 shrink-0 flex-wrap">
           <Link
+            href="/dashboard/student/register-vehicle"
+            className="px-3.5 py-2 bg-[#0a2f77] hover:bg-[#082660] text-white font-bold text-xs rounded-lg flex items-center gap-1.5 shadow-xs transition cursor-pointer"
+          >
+            <Car className="w-3.5 h-3.5" />
+            <span>Register Vehicle</span>
+          </Link>
+          <Link
             href="/dashboard/student/qr"
             className="px-3.5 py-2 bg-blue-50 border border-blue-200 hover:bg-blue-100 text-blue-800 font-bold text-xs rounded-lg flex items-center gap-1.5 shadow-xs transition cursor-pointer"
           >
@@ -224,7 +231,14 @@ export default function StudentDashboardView() {
                   </div>
                 </div>
 
-                <div className="flex items-center gap-2 pt-1">
+                <div className="flex items-center gap-2 pt-1 flex-wrap">
+                  <Link
+                    href="/dashboard/student/register-vehicle"
+                    className="px-3.5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs rounded-lg flex items-center gap-1.5 shadow-xs transition cursor-pointer"
+                  >
+                    <Car className="w-3.5 h-3.5" />
+                    <span>Register Vehicle</span>
+                  </Link>
                   <Link
                     href="/dashboard/student/qr"
                     className="px-4 py-2 bg-[#0a2f77] hover:bg-[#082660] text-white font-bold text-xs rounded-lg flex items-center gap-1.5 shadow-xs transition cursor-pointer"
