@@ -65,6 +65,22 @@ export const API_ENDPOINTS = {
     my: (owner?: string) => `${getApiUrl()}/api/parking/passes/my${owner ? `?owner=${encodeURIComponent(owner)}` : ""}`,
     verify: `${getApiUrl()}/api/parking/verify`,
   },
+  vehicles: {
+    base: `${getApiUrl()}/api/vehicles`,
+    register: `${getApiUrl()}/api/vehicles/register`,
+    my: (email?: string, studentId?: string) => {
+      const params = new URLSearchParams();
+      if (email) params.set("email", email);
+      if (studentId) params.set("studentId", studentId);
+      const q = params.toString();
+      return q ? `${getApiUrl()}/api/vehicles/my?${q}` : `${getApiUrl()}/api/vehicles/my`;
+    },
+    byId: (id: number | string) => `${getApiUrl()}/api/vehicles/${id}`,
+    approve: (id: number | string) => `${getApiUrl()}/api/vehicles/${id}/approve`,
+    deny: (id: number | string) => `${getApiUrl()}/api/vehicles/${id}/deny`,
+    checkNumber: (vehicleNumber: string) => `${getApiUrl()}/api/vehicles/check?vehicleNumber=${encodeURIComponent(vehicleNumber)}`,
+    list: (status?: string) => status ? `${getApiUrl()}/api/vehicles?status=${encodeURIComponent(status)}` : `${getApiUrl()}/api/vehicles`,
+  },
   auditLogs: {
     base: `${getApiUrl()}/api/audit-logs`,
     list: `${getApiUrl()}/api/audit-logs`,

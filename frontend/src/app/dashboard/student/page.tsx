@@ -5,6 +5,7 @@ import StudentLayout, { StudentTab } from "@/components/student/StudentLayout";
 import StudentDashboardView from "@/components/student/StudentDashboardView";
 import StudentQrView from "@/components/student/StudentQrView";
 import StudentReportView from "@/components/student/StudentReportView";
+import StudentRegisterVehicleView from "@/components/student/StudentRegisterVehicleView";
 import StudentNotificationsView from "@/components/student/StudentNotificationsView";
 import StudentProfileView from "@/components/student/StudentProfileView";
 
@@ -18,6 +19,8 @@ export default function StudentDashboardPage() {
       const tabParam = params.get("tab")?.toLowerCase();
       if (tabParam === "qr" || tabParam === "my-qr-code" || tabParam === "qrcode") {
         setActiveTab("My QR code");
+      } else if (tabParam === "register-vehicle" || tabParam === "vehicle" || tabParam === "register_vehicle") {
+        setActiveTab("Register vehicle");
       } else if (tabParam === "report" || tabParam === "report-incident" || tabParam === "incidents") {
         setActiveTab("Report incident");
       } else if (tabParam === "notifications") {
@@ -34,6 +37,7 @@ export default function StudentDashboardPage() {
     <StudentLayout activeTab={activeTab} onTabChange={(tab) => setActiveTab(tab)}>
       {activeTab === "Dashboard" && <StudentDashboardView />}
       {activeTab === "My QR code" && <StudentQrView />}
+      {activeTab === "Register vehicle" && <StudentRegisterVehicleView />}
       {activeTab === "Report incident" && <StudentReportView />}
       {activeTab === "Notifications" && <StudentNotificationsView />}
       {activeTab === "Profile" && <StudentProfileView />}

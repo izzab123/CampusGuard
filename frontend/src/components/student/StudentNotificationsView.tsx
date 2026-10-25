@@ -24,6 +24,7 @@ import {
 import { API_ENDPOINTS } from "@/lib/api";
 import { getStoredAuthUser } from "@/lib/auth";
 import IncidentDetailsModal from "@/components/incidents/IncidentDetailsModal";
+import VehicleDetailsModal from "@/components/vehicles/VehicleDetailsModal";
 
 interface NotificationItem {
   id: number;
@@ -34,6 +35,7 @@ interface NotificationItem {
   category: string;
   priority: string;
   incidentId?: number;
+  vehicleRegistrationId?: number;
   isRead: boolean;
   createdAt: string;
 }
@@ -45,6 +47,8 @@ export default function StudentNotificationsView() {
   const [actionNotice, setActionNotice] = useState<string | null>(null);
   const [selectedIncidentId, setSelectedIncidentId] = useState<number | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [selectedVehicleId, setSelectedVehicleId] = useState<number | null>(null);
+  const [isVehicleModalOpen, setIsVehicleModalOpen] = useState(false);
 
   const fetchNotifications = async () => {
     try {
@@ -69,6 +73,16 @@ export default function StudentNotificationsView() {
     if (notif.incidentId) {
       setSelectedIncidentId(notif.incidentId);
       setIsModalOpen(true);
+      if (!notif.isRead) {
+        handleMarkAsRead(notif.id);
+      }
+    }
+  };
+
+  const handleOpenVehicle = (notif: NotificationItem) => {
+    if (notif.vehicleRegistrationId) {
+      setSelectedVehicleId(notif.vehicleRegistrationId);
+      setIsVehicleModalOpen(true);
       if (!notif.isRead) {
         handleMarkAsRead(notif.id);
       }
@@ -198,6 +212,11 @@ export default function StudentNotificationsView() {
                       #INC-{item.incidentId}
                     </span>
                   )}
+                  {item.vehicleRegistrationId && (
+                    <span className="px-2 py-0.5 rounded text-[10px] font-mono font-bold bg-amber-100 text-amber-800 border border-amber-300">
+                      #VEH-{item.vehicleRegistrationId}
+                    </span>
+                  )}
                 </div>
                 <p className="text-xs text-slate-600 leading-relaxed max-w-3xl">
                   {item.message}
@@ -216,6 +235,17 @@ export default function StudentNotificationsView() {
                   >
                     <FileText className="w-3.5 h-3.5" />
                     <span>View Incident Report</span>
+                  </button>
+                )}
+
+                {item.vehicleRegistrationId && (
+                  <button
+                    type="button"
+                    onClick={() => handleOpenVehicle(item)}
+                    className="px-3 py-1.5 bg-[#0a2f77] hover:bg-[#082660] text-white font-bold text-xs rounded-lg transition cursor-pointer flex items-center gap-1.5 shadow-2xs"
+                  >
+                    <Car className="w-3.5 h-3.5" />
+                    <span>View Vehicle Details</span>
                   </button>
                 )}
 
@@ -241,6 +271,17 @@ export default function StudentNotificationsView() {
         onClose={() => {
           setIsModalOpen(false);
           setSelectedIncidentId(null);
+        }}
+      />
+
+      {/* Vehicle Details Modal */}
+      <VehicleDetailsModal
+        isOpen={isVehicleModalOpen}
+        vehicleId={selectedVehicleId}
+        canApprove={false}
+        onClose={() => {
+          setIsVehicleModalOpen(false);
+          setSelectedVehicleId(null);
         }}
       />
     </div>

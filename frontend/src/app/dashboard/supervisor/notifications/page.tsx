@@ -21,11 +21,13 @@ import {
   RefreshCw,
   Sparkles,
   Users,
-  CheckCheck
+  CheckCheck,
+  Car
 } from "lucide-react";
 import { getStoredAuthUser, performLogout, AuthUser } from "@/lib/auth";
 import { API_ENDPOINTS } from "@/lib/api";
 import IncidentDetailsModal from "@/components/incidents/IncidentDetailsModal";
+import VehicleDetailsModal from "@/components/vehicles/VehicleDetailsModal";
 
 interface NotificationItem {
   id: number;
@@ -36,6 +38,7 @@ interface NotificationItem {
   recipientRole?: string;
   recipientEmail?: string;
   incidentId?: number;
+  vehicleRegistrationId?: number;
   isRead: boolean;
   read?: boolean;
   createdAt: string;
@@ -57,11 +60,23 @@ export default function SupervisorNotificationsPage() {
   const [isScanning, setIsScanning] = useState(false);
   const [selectedIncidentId, setSelectedIncidentId] = useState<number | null>(null);
   const [isIncidentModalOpen, setIsIncidentModalOpen] = useState(false);
+  const [selectedVehicleId, setSelectedVehicleId] = useState<number | null>(null);
+  const [isVehicleModalOpen, setIsVehicleModalOpen] = useState(false);
 
   const handleOpenIncident = (item: NotificationItem) => {
     if (item.incidentId) {
       setSelectedIncidentId(item.incidentId);
       setIsIncidentModalOpen(true);
+      if (!item.isRead) {
+        handleToggleRead(item.id, false);
+      }
+    }
+  };
+
+  const handleOpenVehicle = (item: NotificationItem) => {
+    if (item.vehicleRegistrationId) {
+      setSelectedVehicleId(item.vehicleRegistrationId);
+      setIsVehicleModalOpen(true);
       if (!item.isRead) {
         handleToggleRead(item.id, false);
       }
@@ -649,12 +664,18 @@ export default function SupervisorNotificationsPage() {
                     <div className="flex items-start gap-3.5">
                       <div
                         className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 ${
-                          item.priority?.toUpperCase() === "CRITICAL" || item.priority?.toUpperCase() === "HIGH"
+                          item.vehicleRegistrationId
+                            ? "bg-emerald-100 text-emerald-700"
+                            : item.priority?.toUpperCase() === "CRITICAL" || item.priority?.toUpperCase() === "HIGH"
                             ? "bg-red-100 text-red-600"
                             : "bg-blue-100 text-[#1a44c2]"
                         }`}
                       >
-                        <AlertTriangle className="w-5 h-5" />
+                        {item.vehicleRegistrationId ? (
+                          <Car className="w-5 h-5 text-emerald-700" />
+                        ) : (
+                          <AlertTriangle className="w-5 h-5" />
+                        )}
                       </div>
                       <div className="space-y-1">
                         <div className="flex items-center gap-2 flex-wrap">
@@ -669,6 +690,11 @@ export default function SupervisorNotificationsPage() {
                           <span className="text-[10px] font-extrabold uppercase px-2 py-0.5 bg-slate-100 text-slate-600 rounded">
                             {item.category || "SYSTEM"}
                           </span>
+                          {item.vehicleRegistrationId && (
+                            <span className="text-[10px] font-mono font-bold px-2 py-0.5 bg-emerald-50 text-emerald-800 border border-emerald-200 rounded">
+                              #VEH-{item.vehicleRegistrationId}
+                            </span>
+                          )}
                         </div>
                         <p className="text-slate-600 text-xs max-w-3xl leading-relaxed">{item.message}</p>
                         <span className="font-mono text-slate-400 text-[10px] block">
@@ -678,6 +704,17 @@ export default function SupervisorNotificationsPage() {
                     </div>
 
                     <div className="flex items-center gap-2 self-start shrink-0 flex-wrap">
+                      {item.vehicleRegistrationId && (
+                        <button
+                          type="button"
+                          onClick={() => handleOpenVehicle(item)}
+                          className="px-3 py-1.5 bg-[#0a2f77] hover:bg-[#082660] text-white font-bold text-xs rounded-lg transition cursor-pointer flex items-center gap-1.5 shadow-2xs"
+                        >
+                          <Car className="w-3.5 h-3.5" />
+                          <span>View Details</span>
+                        </button>
+                      )}
+
                       {item.incidentId && (
                         <button
                           type="button"
@@ -726,6 +763,17 @@ export default function SupervisorNotificationsPage() {
         onClose={() => {
           setIsIncidentModalOpen(false);
           setSelectedIncidentId(null);
+        }}
+      />
+
+      {/* Vehicle Details Modal */}
+      <VehicleDetailsModal
+        isOpen={isVehicleModalOpen}
+        vehicleId={selectedVehicleId}
+        canApprove={false}
+        onClose={() => {
+          setIsVehicleModalOpen(false);
+          setSelectedVehicleId(null);
         }}
       />
     </div>

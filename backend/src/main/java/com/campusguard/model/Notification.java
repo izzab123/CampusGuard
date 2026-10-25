@@ -37,6 +37,7 @@ public class Notification {
     private String dutyStatus; // NO_SHOW, OVERDUE, ABSENT, ESCALATED
     private Long shiftId;
     private Long incidentId;
+    private Long vehicleRegistrationId;
 
     @Column(nullable = false)
     private LocalDateTime createdAt;
@@ -120,6 +121,9 @@ public class Notification {
 
     public Long getIncidentId() { return incidentId; }
     public void setIncidentId(Long incidentId) { this.incidentId = incidentId; }
+
+    public Long getVehicleRegistrationId() { return vehicleRegistrationId; }
+    public void setVehicleRegistrationId(Long vehicleRegistrationId) { this.vehicleRegistrationId = vehicleRegistrationId; }
 
     public LocalDateTime getCreatedAt() { return createdAt; }
     public void setCreatedAt(LocalDateTime createdAt) { this.createdAt = createdAt; }
