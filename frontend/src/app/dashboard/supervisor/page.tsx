@@ -305,6 +305,12 @@ export default function ShiftSupervisorDashboard() {
                 Dashboard
               </Link>
               <Link
+                href="/dashboard/supervisor/reports"
+                className="py-5 relative transition cursor-pointer hover:text-slate-900"
+              >
+                Reports Export
+              </Link>
+              <Link
                 href="/dashboard/supervisor/occurrence-register"
                 className="py-5 relative transition cursor-pointer hover:text-slate-900"
               >
@@ -411,6 +417,7 @@ export default function ShiftSupervisorDashboard() {
             <nav className="space-y-1">
               {[
                 { name: "Dashboard", href: "/dashboard/supervisor", icon: ShieldCheck, active: true },
+                { name: "Reports Export", href: "/dashboard/supervisor/reports", icon: Download, active: false },
                 { name: "Occurrence Register", href: "/dashboard/supervisor/occurrence-register", icon: ClipboardList, active: false },
                 { name: "Incident Tracking", href: "/dashboard/supervisor/incidents", icon: AlertTriangle, active: false },
                 { name: "Shifts", href: "/dashboard/supervisor/shifts", icon: Calendar },

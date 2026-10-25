@@ -13,4 +13,5 @@ public interface IncidentReportRepository extends JpaRepository<IncidentReport, 
     List<IncidentReport> findAllByOrderByCreatedAtDesc();
     List<IncidentReport> findByReporterEmailIgnoreCaseOrderByCreatedAtDesc(String reporterEmail);
     List<IncidentReport> findByReporterRoleIgnoreCaseOrderByCreatedAtDesc(String reporterRole);
+    List<IncidentReport> findByCreatedAtBetweenOrderByCreatedAtDesc(java.time.LocalDateTime start, java.time.LocalDateTime end);
 }
