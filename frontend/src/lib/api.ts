@@ -100,6 +100,20 @@ export const API_ENDPOINTS = {
     checkIn: (id: number | string) => `${getApiUrl()}/api/attendance/check-in/${id}`,
     approveLeave: (id: number | string) => `${getApiUrl()}/api/attendance/approve-leave/${id}`,
   },
+  occurrenceRegister: {
+    base: `${getApiUrl()}/api/supervisor/occurrence-register`,
+    list: (params?: { startDate?: string; endDate?: string; guard?: string; type?: string }) => {
+      const sp = new URLSearchParams();
+      if (params?.startDate) sp.set("startDate", params.startDate);
+      if (params?.endDate) sp.set("endDate", params.endDate);
+      if (params?.guard) sp.set("guard", params.guard);
+      if (params?.type && params.type !== "ALL") sp.set("type", params.type);
+      const q = sp.toString();
+      return q ? `${getApiUrl()}/api/supervisor/occurrence-register?${q}` : `${getApiUrl()}/api/supervisor/occurrence-register`;
+    },
+    byId: (id: number | string) => `${getApiUrl()}/api/supervisor/occurrence-register/${id}`,
+    addRemark: (id: number | string) => `${getApiUrl()}/api/supervisor/occurrence-register/${id}/remarks`,
+  },
   features: `${getApiUrl()}/api/features`,
   status: `${getApiUrl()}/api/status`,
 };

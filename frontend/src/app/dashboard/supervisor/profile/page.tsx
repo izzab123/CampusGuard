@@ -133,6 +133,12 @@ export default function SupervisorProfilePage() {
                 Dashboard
               </Link>
               <Link
+                href="/dashboard/supervisor/occurrence-register"
+                className="py-5 relative transition cursor-pointer text-slate-600 hover:text-slate-900"
+              >
+                Occurrence Register
+              </Link>
+              <Link
                 href="/dashboard/supervisor/incidents"
                 className="py-5 relative transition cursor-pointer text-slate-600 hover:text-slate-900"
               >
@@ -227,6 +233,12 @@ export default function SupervisorProfilePage() {
                 className="w-full flex items-center px-3.5 py-2.5 rounded-lg text-xs font-semibold text-slate-600 hover:bg-slate-100 hover:text-slate-900 transition"
               >
                 Dashboard
+              </Link>
+              <Link
+                href="/dashboard/supervisor/occurrence-register"
+                className="w-full flex items-center px-3.5 py-2.5 rounded-lg text-xs font-semibold text-slate-600 hover:bg-slate-100 hover:text-slate-900 transition"
+              >
+                Occurrence Register
               </Link>
               <Link
                 href="/dashboard/supervisor/incidents"

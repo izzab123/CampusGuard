@@ -23,7 +23,8 @@ import {
   Plus,
   X,
   Loader2,
-  ShieldAlert
+  ShieldAlert,
+  ClipboardList
 } from "lucide-react";
 import { getStoredAuthUser, performLogout, AuthUser } from "@/lib/auth";
 import { API_ENDPOINTS } from "@/lib/api";
@@ -304,6 +305,12 @@ export default function ShiftSupervisorDashboard() {
                 Dashboard
               </Link>
               <Link
+                href="/dashboard/supervisor/occurrence-register"
+                className="py-5 relative transition cursor-pointer hover:text-slate-900"
+              >
+                Occurrence Register
+              </Link>
+              <Link
                 href="/dashboard/supervisor/incidents"
                 className="py-5 relative transition cursor-pointer hover:text-slate-900"
               >
@@ -404,6 +411,7 @@ export default function ShiftSupervisorDashboard() {
             <nav className="space-y-1">
               {[
                 { name: "Dashboard", href: "/dashboard/supervisor", icon: ShieldCheck, active: true },
+                { name: "Occurrence Register", href: "/dashboard/supervisor/occurrence-register", icon: ClipboardList, active: false },
                 { name: "Incident Tracking", href: "/dashboard/supervisor/incidents", icon: AlertTriangle, active: false },
                 { name: "Shifts", href: "/dashboard/supervisor/shifts", icon: Calendar },
                 { name: "Attendance", href: "/dashboard/supervisor/attendance", icon: UserCheck },
