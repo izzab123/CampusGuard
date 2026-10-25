@@ -696,17 +696,7 @@ export default function SecurityGuardDashboard() {
       <VehicleDetailsModal
         isOpen={isVehicleModalOpen}
         vehicleId={selectedVehicleId}
-        canApprove={true}
-        onApproved={() => {
-          fetchGuardTelemetry();
-          setGuardNotice("Vehicle registration approved! Notifications dispatched to student, supervisor, and admin.");
-          setTimeout(() => setGuardNotice(null), 5000);
-        }}
-        onDenied={() => {
-          fetchGuardTelemetry();
-          setGuardNotice("Vehicle registration denied. Notification dispatched ONLY to the student.");
-          setTimeout(() => setGuardNotice(null), 5000);
-        }}
+        canApprove={false}
         onClose={() => {
           setIsVehicleModalOpen(false);
           setSelectedVehicleId(null);

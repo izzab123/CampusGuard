@@ -374,19 +374,11 @@ export default function GuardNotificationsPage() {
         }}
       />
 
-      {/* Vehicle Details Modal with Guard Approval option */}
+      {/* Vehicle Details Modal */}
       <VehicleDetailsModal
         isOpen={isVehicleModalOpen}
         vehicleId={selectedVehicleId}
-        canApprove={true}
-        onApproved={() => {
-          fetchNotifications();
-          handleAction("Vehicle registration approved! Notifications sent to student, supervisor, and admin.");
-        }}
-        onDenied={() => {
-          fetchNotifications();
-          handleAction("Vehicle registration denied. Notification dispatched ONLY to the student.");
-        }}
+        canApprove={false}
         onClose={() => {
           setIsVehicleModalOpen(false);
           setSelectedVehicleId(null);

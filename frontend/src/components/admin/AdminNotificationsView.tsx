@@ -268,7 +268,15 @@ export default function AdminNotificationsView() {
       <VehicleDetailsModal
         isOpen={isVehicleModalOpen}
         vehicleId={selectedVehicleId}
-        canApprove={false}
+        canApprove={true}
+        onApproved={() => {
+          fetchNotifications();
+          handleAction("Vehicle registration approved! Notifications sent to guard, supervisor, and student.");
+        }}
+        onDenied={() => {
+          fetchNotifications();
+          handleAction("Vehicle registration denied. Notifications sent to student, guard, and supervisor.");
+        }}
         onClose={() => {
           setIsVehicleModalOpen(false);
           setSelectedVehicleId(null);
