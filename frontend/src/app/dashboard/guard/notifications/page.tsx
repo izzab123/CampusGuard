@@ -7,9 +7,7 @@ import {
   Bell,
   Clock,
   LogOut,
-  RotateCcw,
-  CheckCircle2,
-  AlertTriangle
+  RotateCcw
 } from "lucide-react";
 import { performLogout, getStoredAuthUser } from "@/lib/auth";
 import { API_ENDPOINTS } from "@/lib/api";
@@ -36,8 +34,6 @@ export default function GuardNotificationsPage() {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedVehicleId, setSelectedVehicleId] = useState<number | null>(null);
   const [isVehicleModalOpen, setIsVehicleModalOpen] = useState(false);
-  const [approvingVehicleId, setApprovingVehicleId] = useState<number | null>(null);
-  const [denyingVehicleId, setDenyingVehicleId] = useState<number | null>(null);
 
   const fetchNotifications = async () => {
     try {
@@ -75,61 +71,6 @@ export default function GuardNotificationsPage() {
       if (!notif.isRead) {
         handleMarkAsRead(notif.id);
       }
-    }
-  };
-
-  const handleApproveVehicle = async (notif: NotificationItem) => {
-    if (!notif.vehicleRegistrationId) return;
-    setApprovingVehicleId(notif.vehicleRegistrationId);
-    try {
-      const user = getStoredAuthUser();
-      const approverName = user?.fullName || user?.name || "Security Guard";
-      const res = await fetch(API_ENDPOINTS.vehicles.approve(notif.vehicleRegistrationId), {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ approvedBy: approverName }),
-      });
-      if (res.ok) {
-        handleAction("Vehicle registration approved! Notifications sent to student, supervisor, and admin.");
-        handleMarkAsRead(notif.id);
-        fetchNotifications();
-      } else {
-        const err = await res.json();
-        handleAction(err.message || "Failed to approve registration.");
-      }
-    } catch {
-      handleAction("Network error approving vehicle registration.");
-    } finally {
-      setApprovingVehicleId(null);
-    }
-  };
-
-  const handleDenyVehicle = async (notif: NotificationItem) => {
-    if (!notif.vehicleRegistrationId) return;
-    setDenyingVehicleId(notif.vehicleRegistrationId);
-    try {
-      const user = getStoredAuthUser();
-      const approverName = user?.fullName || user?.name || "Security Guard";
-      const res = await fetch(API_ENDPOINTS.vehicles.deny(notif.vehicleRegistrationId), {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          deniedBy: approverName,
-          reason: "Clearance denied by on-duty security guard",
-        }),
-      });
-      if (res.ok) {
-        handleAction("Vehicle registration denied. Notification dispatched ONLY to the student.");
-        handleMarkAsRead(notif.id);
-        fetchNotifications();
-      } else {
-        const err = await res.json();
-        handleAction(err.message || "Failed to deny registration.");
-      }
-    } catch {
-      handleAction("Network error denying vehicle registration.");
-    } finally {
-      setDenyingVehicleId(null);
     }
   };
 
@@ -318,33 +259,13 @@ export default function GuardNotificationsPage() {
                   )}
 
                   {item.vehicleRegistrationId && (
-                    <>
-                      <button
-                        type="button"
-                        onClick={() => handleOpenVehicle(item)}
-                        className="px-3 py-1.5 bg-[#0a2f77] hover:bg-[#082660] text-white font-bold text-xs rounded-lg transition cursor-pointer flex items-center gap-1.5 shadow-2xs"
-                      >
-                        <span>View Details</span>
-                      </button>
-                      <button
-                        type="button"
-                        disabled={denyingVehicleId === item.vehicleRegistrationId || approvingVehicleId === item.vehicleRegistrationId}
-                        onClick={() => handleDenyVehicle(item)}
-                        className="px-3 py-1.5 bg-red-50 hover:bg-red-100 text-red-700 border border-red-200 font-bold text-xs rounded-lg transition cursor-pointer flex items-center gap-1.5 shadow-2xs disabled:opacity-50"
-                      >
-                        <AlertTriangle className="w-3.5 h-3.5 text-red-600" />
-                        <span>{denyingVehicleId === item.vehicleRegistrationId ? "Denying..." : "Deny"}</span>
-                      </button>
-                      <button
-                        type="button"
-                        disabled={approvingVehicleId === item.vehicleRegistrationId || denyingVehicleId === item.vehicleRegistrationId}
-                        onClick={() => handleApproveVehicle(item)}
-                        className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs rounded-lg transition cursor-pointer flex items-center gap-1.5 shadow-2xs disabled:opacity-50"
-                      >
-                        <CheckCircle2 className="w-3.5 h-3.5" />
-                        <span>{approvingVehicleId === item.vehicleRegistrationId ? "Approving..." : "Approve Registration"}</span>
-                      </button>
-                    </>
+                    <button
+                      type="button"
+                      onClick={() => handleOpenVehicle(item)}
+                      className="px-3 py-1.5 bg-[#0a2f77] hover:bg-[#082660] text-white font-bold text-xs rounded-lg transition cursor-pointer flex items-center gap-1.5 shadow-2xs"
+                    >
+                      <span>View Details</span>
+                    </button>
                   )}
 
                   {!item.isRead && (
@@ -374,19 +295,11 @@ export default function GuardNotificationsPage() {
         }}
       />
 
-      {/* Vehicle Details Modal with Guard Approval option */}
+      {/* Vehicle Details Modal */}
       <VehicleDetailsModal
         isOpen={isVehicleModalOpen}
         vehicleId={selectedVehicleId}
-        canApprove={true}
-        onApproved={() => {
-          fetchNotifications();
-          handleAction("Vehicle registration approved! Notifications sent to student, supervisor, and admin.");
-        }}
-        onDenied={() => {
-          fetchNotifications();
-          handleAction("Vehicle registration denied. Notification dispatched ONLY to the student.");
-        }}
+        canApprove={false}
         onClose={() => {
           setIsVehicleModalOpen(false);
           setSelectedVehicleId(null);
