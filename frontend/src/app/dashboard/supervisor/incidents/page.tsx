@@ -30,7 +30,8 @@ import {
   Activity,
   AlertCircle,
   Eye,
-  Check
+  Check,
+  ClipboardList
 } from "lucide-react";
 import { getStoredAuthUser, performLogout, AuthUser, getRoleDashboardPath } from "@/lib/auth";
 import { API_ENDPOINTS } from "@/lib/api";
@@ -459,6 +460,12 @@ export default function SupervisorIncidentTrackingPage() {
                 Dashboard
               </Link>
               <Link
+                href="/dashboard/supervisor/occurrence-register"
+                className="py-5 relative transition cursor-pointer hover:text-slate-900"
+              >
+                Occurrence Register
+              </Link>
+              <Link
                 href="/dashboard/supervisor/incidents"
                 className="py-5 relative transition cursor-pointer text-blue-700 font-bold border-b-2 border-blue-700"
               >
@@ -555,6 +562,7 @@ export default function SupervisorIncidentTrackingPage() {
             <nav className="space-y-1">
               {[
                 { name: "Dashboard", href: "/dashboard/supervisor", icon: ShieldCheck, active: false },
+                { name: "Occurrence Register", href: "/dashboard/supervisor/occurrence-register", icon: ClipboardList, active: false },
                 { name: "Incident Tracking", href: "/dashboard/supervisor/incidents", icon: AlertTriangle, active: true },
                 { name: "Shifts", href: "/dashboard/supervisor/shifts", icon: Calendar, active: false },
                 { name: "Attendance", href: "/dashboard/supervisor/attendance", icon: UserCheck, active: false },
