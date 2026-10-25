@@ -3,6 +3,8 @@ package com.campusguard.controller;
 import com.campusguard.dto.VehicleRegistrationRequest;
 import com.campusguard.model.VehicleRegistration;
 import com.campusguard.service.VehicleRegistrationService;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpSession;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -22,6 +24,30 @@ public class VehicleController {
 
     public VehicleController(VehicleRegistrationService vehicleService) {
         this.vehicleService = vehicleService;
+    }
+
+    private String resolveCallerRole(HttpServletRequest request, Map<String, String> body) {
+        if (body != null && body.containsKey("role") && body.get("role") != null && !body.get("role").isBlank()) {
+            return body.get("role").trim();
+        }
+        if (request != null) {
+            String headerRole = request.getHeader("X-User-Role");
+            if (headerRole != null && !headerRole.isBlank()) {
+                return headerRole.trim();
+            }
+            HttpSession session = request.getSession(false);
+            if (session != null && session.getAttribute("USER_ROLE") != null) {
+                return ((String) session.getAttribute("USER_ROLE")).trim();
+            }
+        }
+        String actor = body != null ? (body.get("approvedBy") != null ? body.get("approvedBy") : body.get("deniedBy")) : null;
+        if (actor != null) {
+            String lower = actor.toLowerCase();
+            if (lower.contains("guard") || lower.contains("officer") || lower.contains("supervisor") || lower.contains("student")) {
+                return actor;
+            }
+        }
+        return null;
     }
 
     @PostMapping("/register")
@@ -75,11 +101,25 @@ public class VehicleController {
     @PatchMapping("/{id}/approve")
     public ResponseEntity<?> approveVehiclePatch(
             @PathVariable Long id,
-            @RequestBody(required = false) Map<String, String> body) {
+            @RequestBody(required = false) Map<String, String> body,
+            HttpServletRequest request) {
+        String callerRole = resolveCallerRole(request, body);
+        if (callerRole != null && !"admin".equalsIgnoreCase(callerRole.trim())) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).body(Map.of(
+                    "error", "Access Denied",
+                    "message", "Only administrators are authorized to approve or deny vehicle registration requests. Security guards and other roles cannot approve registrations."
+            ));
+        }
+
         String approvedBy = body != null ? body.get("approvedBy") : null;
         try {
-            VehicleRegistration approved = vehicleService.approveRegistration(id, approvedBy);
+            VehicleRegistration approved = vehicleService.approveRegistration(id, approvedBy, callerRole);
             return ResponseEntity.ok(approved);
+        } catch (SecurityException ex) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).body(Map.of(
+                    "error", "Access Denied",
+                    "message", ex.getMessage()
+            ));
         } catch (NoSuchElementException ex) {
             return ResponseEntity.notFound().build();
         } catch (Exception ex) {
@@ -93,19 +133,34 @@ public class VehicleController {
     @PostMapping("/{id}/approve")
     public ResponseEntity<?> approveVehiclePost(
             @PathVariable Long id,
-            @RequestBody(required = false) Map<String, String> body) {
-        return approveVehiclePatch(id, body);
+            @RequestBody(required = false) Map<String, String> body,
+            HttpServletRequest request) {
+        return approveVehiclePatch(id, body, request);
     }
 
     @PatchMapping("/{id}/deny")
     public ResponseEntity<?> denyVehiclePatch(
             @PathVariable Long id,
-            @RequestBody(required = false) Map<String, String> body) {
+            @RequestBody(required = false) Map<String, String> body,
+            HttpServletRequest request) {
+        String callerRole = resolveCallerRole(request, body);
+        if (callerRole != null && !"admin".equalsIgnoreCase(callerRole.trim())) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).body(Map.of(
+                    "error", "Access Denied",
+                    "message", "Only administrators are authorized to approve or deny vehicle registration requests. Security guards and other roles cannot deny registrations."
+            ));
+        }
+
         String deniedBy = body != null ? body.get("deniedBy") : null;
         String reason = body != null ? body.get("reason") : null;
         try {
-            VehicleRegistration denied = vehicleService.denyRegistration(id, reason, deniedBy);
+            VehicleRegistration denied = vehicleService.denyRegistration(id, reason, deniedBy, callerRole);
             return ResponseEntity.ok(denied);
+        } catch (SecurityException ex) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).body(Map.of(
+                    "error", "Access Denied",
+                    "message", ex.getMessage()
+            ));
         } catch (NoSuchElementException ex) {
             return ResponseEntity.notFound().build();
         } catch (Exception ex) {
@@ -119,8 +174,9 @@ public class VehicleController {
     @PostMapping("/{id}/deny")
     public ResponseEntity<?> denyVehiclePost(
             @PathVariable Long id,
-            @RequestBody(required = false) Map<String, String> body) {
-        return denyVehiclePatch(id, body);
+            @RequestBody(required = false) Map<String, String> body,
+            HttpServletRequest request) {
+        return denyVehiclePatch(id, body, request);
     }
 
     @GetMapping("/check")

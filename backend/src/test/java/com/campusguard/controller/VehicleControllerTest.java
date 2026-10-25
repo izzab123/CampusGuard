@@ -293,4 +293,50 @@ public class VehicleControllerTest {
         assertTrue(latestSupervisor.getMessage().contains(adminReason));
         assertEquals(regId, latestSupervisor.getVehicleRegistrationId());
     }
+
+    @Test
+    void testGuardCannotApproveOrDenyVehicle() throws Exception {
+        String uniquePlate = "GUARD-TEST-" + System.currentTimeMillis();
+        VehicleRegistrationRequest req = new VehicleRegistrationRequest(
+                "STU-9907",
+                "Sam Guardtest",
+                "+1-555-0777",
+                uniquePlate,
+                "Car",
+                "sam@campus.edu"
+        );
+
+        String responseStr = mockMvc.perform(post("/api/vehicles/register")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(req)))
+                .andExpect(status().isCreated())
+                .andReturn().getResponse().getContentAsString();
+
+        VehicleRegistration created = objectMapper.readValue(responseStr, VehicleRegistration.class);
+        Long regId = created.getId();
+
+        // 1. Guard attempts to approve -> HTTP 403 Forbidden
+        mockMvc.perform(patch("/api/vehicles/" + regId + "/approve")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .header("X-User-Role", "Security Guard")
+                        .content("{\"approvedBy\": \"Officer Marcus Vance\", \"role\": \"Security Guard\"}"))
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.message").value(containsString("Only administrators are authorized")));
+
+        // 2. Guard attempts to deny -> HTTP 403 Forbidden
+        mockMvc.perform(patch("/api/vehicles/" + regId + "/deny")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .header("X-User-Role", "Security Guard")
+                        .content("{\"deniedBy\": \"Officer Marcus Vance\", \"reason\": \"Guard rejecting\", \"role\": \"Security Guard\"}"))
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.message").value(containsString("Only administrators are authorized")));
+
+        // 3. Admin approves -> HTTP 200 OK
+        mockMvc.perform(patch("/api/vehicles/" + regId + "/approve")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .header("X-User-Role", "Admin")
+                        .content("{\"approvedBy\": \"Admin Eleanor\", \"role\": \"Admin\"}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.status").value("Approved"));
+    }
 }

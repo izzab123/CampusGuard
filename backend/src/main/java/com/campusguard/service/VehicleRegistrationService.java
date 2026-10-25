@@ -83,6 +83,15 @@ public class VehicleRegistrationService {
 
     @Transactional
     public VehicleRegistration approveRegistration(Long id, String approvedBy) {
+        return approveRegistration(id, approvedBy, null);
+    }
+
+    @Transactional
+    public VehicleRegistration approveRegistration(Long id, String approvedBy, String callerRole) {
+        if (callerRole != null && !callerRole.isBlank() && !"admin".equalsIgnoreCase(callerRole.trim())) {
+            throw new SecurityException("Only administrators are authorized to approve vehicle registration requests.");
+        }
+
         VehicleRegistration reg = vehicleRepo.findById(id)
                 .orElseThrow(() -> new NoSuchElementException("Vehicle registration not found with ID: " + id));
 
@@ -157,6 +166,15 @@ public class VehicleRegistrationService {
 
     @Transactional
     public VehicleRegistration denyRegistration(Long id, String reason, String deniedBy) {
+        return denyRegistration(id, reason, deniedBy, null);
+    }
+
+    @Transactional
+    public VehicleRegistration denyRegistration(Long id, String reason, String deniedBy, String callerRole) {
+        if (callerRole != null && !callerRole.isBlank() && !"admin".equalsIgnoreCase(callerRole.trim())) {
+            throw new SecurityException("Only administrators are authorized to deny vehicle registration requests.");
+        }
+
         VehicleRegistration reg = vehicleRepo.findById(id)
                 .orElseThrow(() -> new NoSuchElementException("Vehicle registration not found with ID: " + id));
 

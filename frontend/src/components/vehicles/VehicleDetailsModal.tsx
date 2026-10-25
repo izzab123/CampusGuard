@@ -63,6 +63,10 @@ export default function VehicleDetailsModal({
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
 
+  const authUser = getStoredAuthUser();
+  const isAdmin = authUser?.role?.toLowerCase() === "admin";
+  const effectiveCanApprove = Boolean(canApprove && isAdmin);
+
   useEffect(() => {
     if (!isOpen) {
       setErrorMsg(null);
@@ -94,16 +98,27 @@ export default function VehicleDetailsModal({
 
   const handleApprove = async () => {
     if (!vehicle?.id) return;
+    const currentAuth = getStoredAuthUser();
+    if (currentAuth?.role?.toLowerCase() !== "admin") {
+      setErrorMsg("Only administrators are authorized to approve vehicle registrations.");
+      return;
+    }
+
     setApproving(true);
     setErrorMsg(null);
     try {
-      const authUser = getStoredAuthUser();
-      const approverName = authUser?.fullName || authUser?.name || "Administrator";
+      const approverName = currentAuth?.fullName || currentAuth?.name || "Administrator";
 
       const res = await fetch(API_ENDPOINTS.vehicles.approve(vehicle.id), {
         method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ approvedBy: approverName }),
+        headers: {
+          "Content-Type": "application/json",
+          "X-User-Role": currentAuth?.role || "Admin",
+        },
+        body: JSON.stringify({
+          approvedBy: approverName,
+          role: currentAuth?.role || "Admin",
+        }),
       });
 
       if (!res.ok) {
@@ -126,6 +141,12 @@ export default function VehicleDetailsModal({
 
   const handleDeny = async () => {
     if (!vehicle?.id) return;
+    const currentAuth = getStoredAuthUser();
+    if (currentAuth?.role?.toLowerCase() !== "admin") {
+      setErrorMsg("Only administrators are authorized to deny vehicle registrations.");
+      return;
+    }
+
     if (!denyReason.trim()) {
       setErrorMsg("Please write the reason for denying this vehicle registration request.");
       return;
@@ -133,15 +154,18 @@ export default function VehicleDetailsModal({
     setDenying(true);
     setErrorMsg(null);
     try {
-      const authUser = getStoredAuthUser();
-      const approverName = authUser?.fullName || authUser?.name || "Administrator";
+      const approverName = currentAuth?.fullName || currentAuth?.name || "Administrator";
 
       const res = await fetch(API_ENDPOINTS.vehicles.deny(vehicle.id), {
         method: "PATCH",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          "X-User-Role": currentAuth?.role || "Admin",
+        },
         body: JSON.stringify({
           deniedBy: approverName,
           reason: denyReason.trim(),
+          role: currentAuth?.role || "Admin",
         }),
       });
 
@@ -357,7 +381,7 @@ export default function VehicleDetailsModal({
               </div>
 
               {/* Deny Reason Prompt Box */}
-              {showDenyPrompt && canApprove && isPending && (
+              {showDenyPrompt && effectiveCanApprove && isPending && (
                 <div className="p-3.5 bg-red-50 border border-red-200 rounded-xl space-y-2.5 animate-in fade-in">
                   <div className="flex items-center justify-between">
                     <span className="font-bold text-red-900 text-xs flex items-center gap-1.5">
@@ -431,7 +455,7 @@ export default function VehicleDetailsModal({
             Close
           </button>
 
-          {canApprove && isPending && !showDenyPrompt && (
+          {effectiveCanApprove && isPending && !showDenyPrompt && (
             <div className="flex items-center gap-2">
               <button
                 type="button"
