@@ -22,7 +22,8 @@ import {
   Send,
   Plus,
   X,
-  Loader2
+  Loader2,
+  ShieldAlert
 } from "lucide-react";
 import { getStoredAuthUser, performLogout, AuthUser } from "@/lib/auth";
 import { API_ENDPOINTS } from "@/lib/api";
@@ -303,6 +304,12 @@ export default function ShiftSupervisorDashboard() {
                 Dashboard
               </Link>
               <Link
+                href="/dashboard/supervisor/incidents"
+                className="py-5 relative transition cursor-pointer hover:text-slate-900"
+              >
+                Incident Tracking
+              </Link>
+              <Link
                 href="/dashboard/supervisor/shifts"
                 className="py-5 relative transition cursor-pointer hover:text-slate-900"
               >
@@ -397,9 +404,10 @@ export default function ShiftSupervisorDashboard() {
             <nav className="space-y-1">
               {[
                 { name: "Dashboard", href: "/dashboard/supervisor", icon: ShieldCheck, active: true },
+                { name: "Incident Tracking", href: "/dashboard/supervisor/incidents", icon: AlertTriangle, active: false },
                 { name: "Shifts", href: "/dashboard/supervisor/shifts", icon: Calendar },
                 { name: "Attendance", href: "/dashboard/supervisor/attendance", icon: UserCheck },
-                { name: "Escalations", href: "/dashboard/supervisor/escalations", icon: AlertTriangle },
+                { name: "Escalations", href: "/dashboard/supervisor/escalations", icon: ShieldAlert },
                 { name: "Logbook", href: "/dashboard/supervisor/logbook", icon: Layers },
                 { name: "Notifications", href: "/dashboard/supervisor/notifications", icon: Bell },
                 { name: "Profile", href: "/dashboard/supervisor/profile", icon: UserCheck },
@@ -468,12 +476,19 @@ export default function ShiftSupervisorDashboard() {
             </div>
 
             <div className="flex items-center gap-2.5">
+              <Link
+                href="/dashboard/supervisor/incidents"
+                className="px-3.5 py-2 bg-[#0a2f77] hover:bg-[#082660] text-white font-bold text-xs rounded-lg flex items-center gap-1.5 shadow-xs transition cursor-pointer"
+              >
+                <AlertTriangle className="w-3.5 h-3.5" />
+                <span>Incident Tracking</span>
+              </Link>
               <button
                 type="button"
                 onClick={() => setIsIncidentModalOpen(true)}
                 className="px-3.5 py-2 bg-red-600 hover:bg-red-700 text-white font-bold text-xs rounded-lg flex items-center gap-1.5 shadow-xs transition cursor-pointer"
               >
-                <AlertTriangle className="w-3.5 h-3.5" />
+                <Plus className="w-3.5 h-3.5" />
                 <span>Log Incident</span>
               </button>
               <button
