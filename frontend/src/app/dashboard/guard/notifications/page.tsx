@@ -37,6 +37,7 @@ export default function GuardNotificationsPage() {
   const [selectedVehicleId, setSelectedVehicleId] = useState<number | null>(null);
   const [isVehicleModalOpen, setIsVehicleModalOpen] = useState(false);
   const [approvingVehicleId, setApprovingVehicleId] = useState<number | null>(null);
+  const [denyingVehicleId, setDenyingVehicleId] = useState<number | null>(null);
 
   const fetchNotifications = async () => {
     try {
@@ -89,7 +90,7 @@ export default function GuardNotificationsPage() {
         body: JSON.stringify({ approvedBy: approverName }),
       });
       if (res.ok) {
-        handleAction("Vehicle registration approved! Notifications sent to Supervisor and Admin.");
+        handleAction("Vehicle registration approved! Notifications sent to student, supervisor, and admin.");
         handleMarkAsRead(notif.id);
         fetchNotifications();
       } else {
@@ -100,6 +101,35 @@ export default function GuardNotificationsPage() {
       handleAction("Network error approving vehicle registration.");
     } finally {
       setApprovingVehicleId(null);
+    }
+  };
+
+  const handleDenyVehicle = async (notif: NotificationItem) => {
+    if (!notif.vehicleRegistrationId) return;
+    setDenyingVehicleId(notif.vehicleRegistrationId);
+    try {
+      const user = getStoredAuthUser();
+      const approverName = user?.fullName || user?.name || "Security Guard";
+      const res = await fetch(API_ENDPOINTS.vehicles.deny(notif.vehicleRegistrationId), {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          deniedBy: approverName,
+          reason: "Clearance denied by on-duty security guard",
+        }),
+      });
+      if (res.ok) {
+        handleAction("Vehicle registration denied. Notification dispatched ONLY to the student.");
+        handleMarkAsRead(notif.id);
+        fetchNotifications();
+      } else {
+        const err = await res.json();
+        handleAction(err.message || "Failed to deny registration.");
+      }
+    } catch {
+      handleAction("Network error denying vehicle registration.");
+    } finally {
+      setDenyingVehicleId(null);
     }
   };
 
@@ -298,7 +328,16 @@ export default function GuardNotificationsPage() {
                       </button>
                       <button
                         type="button"
-                        disabled={approvingVehicleId === item.vehicleRegistrationId}
+                        disabled={denyingVehicleId === item.vehicleRegistrationId || approvingVehicleId === item.vehicleRegistrationId}
+                        onClick={() => handleDenyVehicle(item)}
+                        className="px-3 py-1.5 bg-red-50 hover:bg-red-100 text-red-700 border border-red-200 font-bold text-xs rounded-lg transition cursor-pointer flex items-center gap-1.5 shadow-2xs disabled:opacity-50"
+                      >
+                        <AlertTriangle className="w-3.5 h-3.5 text-red-600" />
+                        <span>{denyingVehicleId === item.vehicleRegistrationId ? "Denying..." : "Deny"}</span>
+                      </button>
+                      <button
+                        type="button"
+                        disabled={approvingVehicleId === item.vehicleRegistrationId || denyingVehicleId === item.vehicleRegistrationId}
                         onClick={() => handleApproveVehicle(item)}
                         className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs rounded-lg transition cursor-pointer flex items-center gap-1.5 shadow-2xs disabled:opacity-50"
                       >
@@ -342,7 +381,11 @@ export default function GuardNotificationsPage() {
         canApprove={true}
         onApproved={() => {
           fetchNotifications();
-          handleAction("Vehicle registration approved successfully!");
+          handleAction("Vehicle registration approved! Notifications sent to student, supervisor, and admin.");
+        }}
+        onDenied={() => {
+          fetchNotifications();
+          handleAction("Vehicle registration denied. Notification dispatched ONLY to the student.");
         }}
         onClose={() => {
           setIsVehicleModalOpen(false);

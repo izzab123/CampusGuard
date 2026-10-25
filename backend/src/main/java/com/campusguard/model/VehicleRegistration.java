@@ -38,6 +38,12 @@ public class VehicleRegistration {
 
     private String approvedBy;
 
+    private LocalDateTime deniedAt;
+
+    private String deniedBy;
+
+    private String rejectionReason;
+
     public VehicleRegistration() {
         this.createdAt = LocalDateTime.now();
         this.status = "Pending approval";
@@ -86,4 +92,13 @@ public class VehicleRegistration {
 
     public String getApprovedBy() { return approvedBy; }
     public void setApprovedBy(String approvedBy) { this.approvedBy = approvedBy; }
+
+    public LocalDateTime getDeniedAt() { return deniedAt; }
+    public void setDeniedAt(LocalDateTime deniedAt) { this.deniedAt = deniedAt; }
+
+    public String getDeniedBy() { return deniedBy; }
+    public void setDeniedBy(String deniedBy) { this.deniedBy = deniedBy; }
+
+    public String getRejectionReason() { return rejectionReason; }
+    public void setRejectionReason(String rejectionReason) { this.rejectionReason = rejectionReason; }
 }

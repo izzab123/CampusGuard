@@ -108,14 +108,28 @@ public class VehicleRegistrationService {
             parkingPassRepo.save(pass);
         }
 
-        // Notify Shift Supervisor and Admin ONLY as "new vehicle register"
-        String title = "New Vehicle Registered";
-        String message = "Vehicle " + reg.getVehicleNumber() + " (" + reg.getVehicleType() + ") owned by " + reg.getOwnerName() + " (Student ID: " + reg.getStudentId() + ", Contact: " + reg.getContactNumber() + ") has been approved and registered.";
+        // Notify Student, Shift Supervisor, and Admin that vehicle registration was successful
+        String successTitle = "Vehicle Registration Successful";
+        String adminMsg = "Vehicle " + reg.getVehicleNumber() + " (" + reg.getVehicleType() + ") owned by " + reg.getOwnerName() + " (Student ID: " + reg.getStudentId() + ", Contact: " + reg.getContactNumber() + ") has been approved by " + updated.getApprovedBy() + " and registered.";
 
+        // 1. Notify Student
+        Notification studentNotif = new Notification();
+        studentNotif.setRecipientRole("Student");
+        studentNotif.setRecipientEmail(reg.getSubmittedByEmail());
+        studentNotif.setTitle(successTitle);
+        studentNotif.setMessage("Your vehicle registration request for " + reg.getVehicleNumber() + " (" + reg.getVehicleType() + ") has been approved by campus security. Parking pass and gate clearance are active.");
+        studentNotif.setCategory("VEHICLE_REGISTRATION");
+        studentNotif.setPriority("MEDIUM");
+        studentNotif.setVehicleRegistrationId(updated.getId());
+        studentNotif.setCreatedAt(LocalDateTime.now());
+        studentNotif.setRead(false);
+        notificationRepo.save(studentNotif);
+
+        // 2. Notify Shift Supervisor
         Notification supervisorNotif = new Notification();
         supervisorNotif.setRecipientRole("Shift Supervisor");
-        supervisorNotif.setTitle(title);
-        supervisorNotif.setMessage(message);
+        supervisorNotif.setTitle(successTitle);
+        supervisorNotif.setMessage(adminMsg);
         supervisorNotif.setCategory("VEHICLE_REGISTRATION");
         supervisorNotif.setPriority("MEDIUM");
         supervisorNotif.setVehicleRegistrationId(updated.getId());
@@ -123,16 +137,51 @@ public class VehicleRegistrationService {
         supervisorNotif.setRead(false);
         notificationRepo.save(supervisorNotif);
 
+        // 3. Notify Admin
         Notification adminNotif = new Notification();
         adminNotif.setRecipientRole("Admin");
-        adminNotif.setTitle(title);
-        adminNotif.setMessage(message);
+        adminNotif.setTitle(successTitle);
+        adminNotif.setMessage(adminMsg);
         adminNotif.setCategory("VEHICLE_REGISTRATION");
         adminNotif.setPriority("MEDIUM");
         adminNotif.setVehicleRegistrationId(updated.getId());
         adminNotif.setCreatedAt(LocalDateTime.now());
         adminNotif.setRead(false);
         notificationRepo.save(adminNotif);
+
+        return updated;
+    }
+
+    @Transactional
+    public VehicleRegistration denyRegistration(Long id, String reason, String deniedBy) {
+        VehicleRegistration reg = vehicleRepo.findById(id)
+                .orElseThrow(() -> new NoSuchElementException("Vehicle registration not found with ID: " + id));
+
+        if ("Denied".equalsIgnoreCase(reg.getStatus())) {
+            return reg;
+        }
+
+        reg.setStatus("Denied");
+        reg.setDeniedAt(LocalDateTime.now());
+        reg.setDeniedBy(deniedBy != null && !deniedBy.isBlank() ? deniedBy.trim() : "Security Guard");
+        reg.setRejectionReason(reason != null && !reason.isBlank() ? reason.trim() : "Clearance denied by campus security");
+        VehicleRegistration updated = vehicleRepo.save(reg);
+
+        // Notify ONLY the student that vehicle registration request has been denied
+        Notification studentNotif = new Notification();
+        studentNotif.setRecipientRole("Student");
+        studentNotif.setRecipientEmail(reg.getSubmittedByEmail());
+        studentNotif.setTitle("Vehicle Registration Denied");
+        String reasonSuffix = (reg.getRejectionReason() != null && !reg.getRejectionReason().isBlank())
+                ? " Reason: " + reg.getRejectionReason()
+                : "";
+        studentNotif.setMessage("Your request of vehicle registration for " + reg.getVehicleNumber() + " (" + reg.getVehicleType() + ") has been denied." + reasonSuffix);
+        studentNotif.setCategory("VEHICLE_REGISTRATION");
+        studentNotif.setPriority("HIGH");
+        studentNotif.setVehicleRegistrationId(updated.getId());
+        studentNotif.setCreatedAt(LocalDateTime.now());
+        studentNotif.setRead(false);
+        notificationRepo.save(studentNotif);
 
         return updated;
     }

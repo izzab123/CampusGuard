@@ -59,6 +59,8 @@ public class VehicleControllerTest {
         );
 
         int initialGuardNotifCount = notificationRepo.findByRecipientRoleIgnoreCaseOrRecipientRoleIgnoreCaseOrderByCreatedAtDesc("Security Guard", "ALL").size();
+        int initialAdminCount = notificationRepo.findByRecipientRoleIgnoreCaseOrRecipientRoleIgnoreCaseOrderByCreatedAtDesc("Admin", "ALL").size();
+        int initialSupervisorCount = notificationRepo.findByRecipientRoleIgnoreCaseOrRecipientRoleIgnoreCaseOrderByCreatedAtDesc("Shift Supervisor", "ALL").size();
 
         mockMvc.perform(post("/api/vehicles/register")
                         .contentType(MediaType.APPLICATION_JSON)
@@ -70,7 +72,7 @@ public class VehicleControllerTest {
                 .andExpect(jsonPath("$.ownerName").value("Jane Doe"))
                 .andExpect(jsonPath("$.studentId").value("STU-9901"));
 
-        // Verify notification sent to Security Guard
+        // Verify notification sent to Security Guard ONLY (not to Admin or Supervisor before approval)
         List<Notification> guardNotifs = notificationRepo.findByRecipientRoleIgnoreCaseOrRecipientRoleIgnoreCaseOrderByCreatedAtDesc("Security Guard", "ALL");
         assertTrue(guardNotifs.size() > initialGuardNotifCount);
 
@@ -78,6 +80,12 @@ public class VehicleControllerTest {
         assertEquals("Security Guard", latestGuardNotif.getRecipientRole());
         assertEquals("New Vehicle Registration Submitted", latestGuardNotif.getTitle());
         assertTrue(latestGuardNotif.getMessage().contains(uniquePlate));
+
+        // Ensure Admin and Supervisor were NOT notified upon submission before guard approval
+        int postRegAdminCount = notificationRepo.findByRecipientRoleIgnoreCaseOrRecipientRoleIgnoreCaseOrderByCreatedAtDesc("Admin", "ALL").size();
+        int postRegSupervisorCount = notificationRepo.findByRecipientRoleIgnoreCaseOrRecipientRoleIgnoreCaseOrderByCreatedAtDesc("Shift Supervisor", "ALL").size();
+        assertEquals(initialAdminCount, postRegAdminCount, "Admin should not receive notification before approval");
+        assertEquals(initialSupervisorCount, postRegSupervisorCount, "Supervisor should not receive notification before approval");
     }
 
     @Test
@@ -133,15 +141,16 @@ public class VehicleControllerTest {
     }
 
     @Test
-    void testApproveVehicleNotifiesSupervisorAndAdminOnly() throws Exception {
+    void testApproveVehicleNotifiesStudentSupervisorAndAdmin() throws Exception {
         String uniquePlate = "APPR-PLATE-" + System.currentTimeMillis();
+        String studentEmail = "carlos@campus.edu";
         VehicleRegistrationRequest req = new VehicleRegistrationRequest(
                 "STU-9904",
                 "Carlos Ray",
                 "+1-555-0400",
                 uniquePlate,
                 "SUV",
-                "carlos@campus.edu"
+                studentEmail
         );
 
         String responseStr = mockMvc.perform(post("/api/vehicles/register")
@@ -153,7 +162,8 @@ public class VehicleControllerTest {
         VehicleRegistration created = objectMapper.readValue(responseStr, VehicleRegistration.class);
         Long regId = created.getId();
 
-        // Count existing notifications for supervisor and admin
+        // Count existing notifications for student, supervisor, and admin
+        int initStudentCount = notificationRepo.findForRecipient("Student", studentEmail).size();
         int initSupervisorCount = notificationRepo.findByRecipientRoleIgnoreCaseOrRecipientRoleIgnoreCaseOrderByCreatedAtDesc("Shift Supervisor", "ALL").size();
         int initAdminCount = notificationRepo.findByRecipientRoleIgnoreCaseOrRecipientRoleIgnoreCaseOrderByCreatedAtDesc("Admin", "ALL").size();
         int initProctorCount = notificationRepo.findByRecipientRoleIgnoreCaseOrRecipientRoleIgnoreCaseOrderByCreatedAtDesc("Proctor and DSW", "ALL").size();
@@ -166,28 +176,83 @@ public class VehicleControllerTest {
                 .andExpect(jsonPath("$.status").value("Approved"))
                 .andExpect(jsonPath("$.approvedBy").value("Officer John"));
 
-        // Verify notifications for Supervisor and Admin
+        // 1. Verify notification sent to Student
+        List<Notification> studentNotifs = notificationRepo.findForRecipient("Student", studentEmail);
+        assertTrue(studentNotifs.size() > initStudentCount, "Student must receive approval notification");
+        Notification latestStudent = studentNotifs.get(0);
+        assertEquals("Vehicle Registration Successful", latestStudent.getTitle());
+        assertTrue(latestStudent.getMessage().contains(uniquePlate));
+        assertEquals(regId, latestStudent.getVehicleRegistrationId());
+
+        // 2. Verify notification sent to Shift Supervisor
         List<Notification> supervisorNotifs = notificationRepo.findByRecipientRoleIgnoreCaseOrRecipientRoleIgnoreCaseOrderByCreatedAtDesc("Shift Supervisor", "ALL");
-        List<Notification> adminNotifs = notificationRepo.findByRecipientRoleIgnoreCaseOrRecipientRoleIgnoreCaseOrderByCreatedAtDesc("Admin", "ALL");
-        List<Notification> proctorNotifs = notificationRepo.findByRecipientRoleIgnoreCaseOrRecipientRoleIgnoreCaseOrderByCreatedAtDesc("Proctor and DSW", "ALL");
-
         assertTrue(supervisorNotifs.size() > initSupervisorCount);
-        assertTrue(adminNotifs.size() > initAdminCount);
-
         Notification latestSup = supervisorNotifs.get(0);
-        assertEquals("New Vehicle Registered", latestSup.getTitle());
+        assertEquals("Vehicle Registration Successful", latestSup.getTitle());
         assertTrue(latestSup.getMessage().contains(uniquePlate));
         assertEquals(regId, latestSup.getVehicleRegistrationId());
 
+        // 3. Verify notification sent to Admin
+        List<Notification> adminNotifs = notificationRepo.findByRecipientRoleIgnoreCaseOrRecipientRoleIgnoreCaseOrderByCreatedAtDesc("Admin", "ALL");
+        assertTrue(adminNotifs.size() > initAdminCount);
         Notification latestAdm = adminNotifs.get(0);
-        assertEquals("New Vehicle Registered", latestAdm.getTitle());
+        assertEquals("Vehicle Registration Successful", latestAdm.getTitle());
         assertTrue(latestAdm.getMessage().contains(uniquePlate));
         assertEquals(regId, latestAdm.getVehicleRegistrationId());
 
-        // Ensure Proctor got NO new vehicle registration notification
-        List<Notification> proctorVehicleNotifs = proctorNotifs.stream()
-                .filter(n -> "VEHICLE_REGISTRATION".equals(n.getCategory()) && "New Vehicle Registered".equals(n.getTitle()))
-                .collect(Collectors.toList());
-        assertTrue(proctorVehicleNotifs.isEmpty(), "Proctor should not receive New Vehicle Registered notification");
+        // Ensure Proctor got NO notification
+        List<Notification> proctorNotifs = notificationRepo.findByRecipientRoleIgnoreCaseOrRecipientRoleIgnoreCaseOrderByCreatedAtDesc("Proctor and DSW", "ALL");
+        assertEquals(initProctorCount, proctorNotifs.size(), "Proctor should not receive vehicle notifications");
+    }
+
+    @Test
+    void testDenyVehicleNotifiesStudentOnly() throws Exception {
+        String uniquePlate = "DENY-PLATE-" + System.currentTimeMillis();
+        String studentEmail = "deniedstudent@campus.edu";
+        VehicleRegistrationRequest req = new VehicleRegistrationRequest(
+                "STU-9905",
+                "Deny Candidate",
+                "+1-555-0555",
+                uniquePlate,
+                "Sedan",
+                studentEmail
+        );
+
+        String responseStr = mockMvc.perform(post("/api/vehicles/register")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(req)))
+                .andExpect(status().isCreated())
+                .andReturn().getResponse().getContentAsString();
+
+        VehicleRegistration created = objectMapper.readValue(responseStr, VehicleRegistration.class);
+        Long regId = created.getId();
+
+        int initStudentCount = notificationRepo.findForRecipient("Student", studentEmail).size();
+        int initSupervisorCount = notificationRepo.findByRecipientRoleIgnoreCaseOrRecipientRoleIgnoreCaseOrderByCreatedAtDesc("Shift Supervisor", "ALL").size();
+        int initAdminCount = notificationRepo.findByRecipientRoleIgnoreCaseOrRecipientRoleIgnoreCaseOrderByCreatedAtDesc("Admin", "ALL").size();
+
+        // Guard denies registration
+        mockMvc.perform(patch("/api/vehicles/" + regId + "/deny")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"deniedBy\": \"Officer Marcus Vance\", \"reason\": \"Plate details unverified\"}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.status").value("Denied"))
+                .andExpect(jsonPath("$.deniedBy").value("Officer Marcus Vance"))
+                .andExpect(jsonPath("$.rejectionReason").value("Plate details unverified"));
+
+        // 1. Verify notification sent ONLY to Student
+        List<Notification> studentNotifs = notificationRepo.findForRecipient("Student", studentEmail);
+        assertTrue(studentNotifs.size() > initStudentCount, "Student must receive denial notification");
+        Notification latestStudent = studentNotifs.get(0);
+        assertEquals("Vehicle Registration Denied", latestStudent.getTitle());
+        assertTrue(latestStudent.getMessage().contains("denied"));
+        assertTrue(latestStudent.getMessage().contains(uniquePlate));
+        assertEquals(regId, latestStudent.getVehicleRegistrationId());
+
+        // 2. Verify Shift Supervisor and Admin received NO notifications upon denial
+        int postDenySupervisorCount = notificationRepo.findByRecipientRoleIgnoreCaseOrRecipientRoleIgnoreCaseOrderByCreatedAtDesc("Shift Supervisor", "ALL").size();
+        int postDenyAdminCount = notificationRepo.findByRecipientRoleIgnoreCaseOrRecipientRoleIgnoreCaseOrderByCreatedAtDesc("Admin", "ALL").size();
+        assertEquals(initSupervisorCount, postDenySupervisorCount, "Supervisor must NOT receive notification on denial");
+        assertEquals(initAdminCount, postDenyAdminCount, "Admin must NOT receive notification on denial");
     }
 }

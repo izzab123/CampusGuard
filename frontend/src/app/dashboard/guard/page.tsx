@@ -66,6 +66,7 @@ export default function SecurityGuardDashboard() {
   const [selectedVehicleId, setSelectedVehicleId] = useState<number | null>(null);
   const [isVehicleModalOpen, setIsVehicleModalOpen] = useState(false);
   const [approvingVehicleId, setApprovingVehicleId] = useState<number | null>(null);
+  const [denyingVehicleId, setDenyingVehicleId] = useState<number | null>(null);
   const [guardNotice, setGuardNotice] = useState<string | null>(null);
 
   const fetchGuardTelemetry = useCallback(async () => {
@@ -143,7 +144,7 @@ export default function SecurityGuardDashboard() {
         body: JSON.stringify({ approvedBy: approverName }),
       });
       if (res.ok) {
-        setGuardNotice("Vehicle registration approved! Notifications dispatched to Shift Supervisor and Admin.");
+        setGuardNotice("Vehicle registration approved! Notifications dispatched to student, supervisor, and admin.");
         setTimeout(() => setGuardNotice(null), 5000);
         fetchGuardTelemetry();
       } else {
@@ -156,6 +157,36 @@ export default function SecurityGuardDashboard() {
       setTimeout(() => setGuardNotice(null), 5000);
     } finally {
       setApprovingVehicleId(null);
+    }
+  };
+
+  const handleDenyVehicle = async (id: number) => {
+    setDenyingVehicleId(id);
+    try {
+      const stored = getStoredAuthUser();
+      const approverName = stored?.fullName || stored?.name || "Officer Marcus Vance";
+      const res = await fetch(API_ENDPOINTS.vehicles.deny(id), {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          deniedBy: approverName,
+          reason: "Clearance denied by on-duty security guard",
+        }),
+      });
+      if (res.ok) {
+        setGuardNotice("Vehicle registration denied. Notification dispatched ONLY to the student.");
+        setTimeout(() => setGuardNotice(null), 5000);
+        fetchGuardTelemetry();
+      } else {
+        const err = await res.json();
+        setGuardNotice(err.message || "Failed to deny registration.");
+        setTimeout(() => setGuardNotice(null), 5000);
+      }
+    } catch {
+      setGuardNotice("Network error denying vehicle registration.");
+      setTimeout(() => setGuardNotice(null), 5000);
+    } finally {
+      setDenyingVehicleId(null);
     }
   };
 
@@ -593,7 +624,7 @@ export default function SecurityGuardDashboard() {
                       </div>
                     </div>
 
-                    <div className="flex items-center gap-2 shrink-0">
+                    <div className="flex items-center gap-2 shrink-0 flex-wrap">
                       <button
                         type="button"
                         onClick={() => {
@@ -602,17 +633,27 @@ export default function SecurityGuardDashboard() {
                         }}
                         className="px-3 py-1.5 bg-white border border-slate-300 hover:bg-slate-100 text-slate-700 font-bold text-xs rounded-lg transition cursor-pointer shadow-2xs"
                       >
-                        View Details
+                        Details
                       </button>
 
                       <button
                         type="button"
-                        disabled={approvingVehicleId === veh.id}
+                        disabled={denyingVehicleId === veh.id || approvingVehicleId === veh.id}
+                        onClick={() => handleDenyVehicle(veh.id)}
+                        className="px-3.5 py-1.5 bg-red-50 hover:bg-red-100 text-red-700 border border-red-200 font-bold text-xs rounded-lg transition cursor-pointer flex items-center gap-1.5 shadow-2xs disabled:opacity-50"
+                      >
+                        <AlertTriangle className="w-3.5 h-3.5 text-red-600" />
+                        <span>{denyingVehicleId === veh.id ? "Denying..." : "Deny"}</span>
+                      </button>
+
+                      <button
+                        type="button"
+                        disabled={approvingVehicleId === veh.id || denyingVehicleId === veh.id}
                         onClick={() => handleApproveVehicle(veh.id)}
                         className="px-4 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs rounded-lg transition cursor-pointer flex items-center gap-1.5 shadow-2xs disabled:opacity-50"
                       >
                         <CheckCircle2 className="w-3.5 h-3.5" />
-                        <span>{approvingVehicleId === veh.id ? "Approving..." : "Approve Registration"}</span>
+                        <span>{approvingVehicleId === veh.id ? "Approving..." : "Approve"}</span>
                       </button>
                     </div>
                   </div>
@@ -658,7 +699,12 @@ export default function SecurityGuardDashboard() {
         canApprove={true}
         onApproved={() => {
           fetchGuardTelemetry();
-          setGuardNotice("Vehicle registration approved! Notifications dispatched to Shift Supervisor and Admin.");
+          setGuardNotice("Vehicle registration approved! Notifications dispatched to student, supervisor, and admin.");
+          setTimeout(() => setGuardNotice(null), 5000);
+        }}
+        onDenied={() => {
+          fetchGuardTelemetry();
+          setGuardNotice("Vehicle registration denied. Notification dispatched ONLY to the student.");
           setTimeout(() => setGuardNotice(null), 5000);
         }}
         onClose={() => {

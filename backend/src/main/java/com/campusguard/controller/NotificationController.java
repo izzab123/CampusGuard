@@ -93,5 +93,14 @@ public class NotificationController {
         notificationRepo.saveAll(list);
         return ResponseEntity.ok().build();
     }
+
+    @DeleteMapping("/{id}")
+    public ResponseEntity<Void> deleteNotification(@PathVariable Long id) {
+        if (notificationRepo.existsById(id)) {
+            notificationRepo.deleteById(id);
+            return ResponseEntity.noContent().build();
+        }
+        return ResponseEntity.notFound().build();
+    }
 }
 

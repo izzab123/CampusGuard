@@ -24,11 +24,14 @@ export interface VehicleRegistrationDetail {
   contactNumber: string;
   vehicleNumber: string;
   vehicleType: string;
-  status: string; // "Pending approval" | "Approved"
+  status: string; // "Pending approval" | "Approved" | "Denied"
   submittedByEmail?: string;
   createdAt: string;
   approvedAt?: string;
   approvedBy?: string;
+  deniedAt?: string;
+  deniedBy?: string;
+  rejectionReason?: string;
 }
 
 interface VehicleDetailsModalProps {
@@ -38,6 +41,7 @@ interface VehicleDetailsModalProps {
   initialData?: VehicleRegistrationDetail | null;
   canApprove?: boolean;
   onApproved?: (updated: VehicleRegistrationDetail) => void;
+  onDenied?: (updated: VehicleRegistrationDetail) => void;
 }
 
 export default function VehicleDetailsModal({
@@ -47,10 +51,14 @@ export default function VehicleDetailsModal({
   initialData,
   canApprove = false,
   onApproved,
+  onDenied,
 }: VehicleDetailsModalProps) {
   const [vehicle, setVehicle] = useState<VehicleRegistrationDetail | null>(initialData || null);
   const [loading, setLoading] = useState(false);
   const [approving, setApproving] = useState(false);
+  const [denying, setDenying] = useState(false);
+  const [showDenyPrompt, setShowDenyPrompt] = useState(false);
+  const [denyReason, setDenyReason] = useState("");
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
 
@@ -104,7 +112,7 @@ export default function VehicleDetailsModal({
 
       const updated = await res.json();
       setVehicle(updated);
-      setSuccessMsg("Vehicle registration approved! Notifications dispatched to Supervisor and Admin.");
+      setSuccessMsg("Vehicle registration approved! Notifications dispatched to student, supervisor, and admin.");
       if (onApproved) {
         onApproved(updated);
       }
@@ -115,7 +123,45 @@ export default function VehicleDetailsModal({
     }
   };
 
+  const handleDeny = async () => {
+    if (!vehicle?.id) return;
+    setDenying(true);
+    setErrorMsg(null);
+    try {
+      const authUser = getStoredAuthUser();
+      const approverName = authUser?.fullName || authUser?.name || "Security Guard";
+
+      const res = await fetch(API_ENDPOINTS.vehicles.deny(vehicle.id), {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          deniedBy: approverName,
+          reason: denyReason.trim() || "Denied by campus security",
+        }),
+      });
+
+      if (!res.ok) {
+        const err = await res.json();
+        throw new Error(err.message || "Denial failed");
+      }
+
+      const updated = await res.json();
+      setVehicle(updated);
+      setShowDenyPrompt(false);
+      setSuccessMsg("Vehicle registration denied. Notification dispatched ONLY to the student.");
+      if (onDenied) {
+        onDenied(updated);
+      }
+    } catch (err: any) {
+      setErrorMsg(err.message || "Error denying registration");
+    } finally {
+      setDenying(false);
+    }
+  };
+
   const isPending = vehicle?.status?.toLowerCase().includes("pending");
+  const isApproved = vehicle?.status?.toLowerCase() === "approved";
+  const isDenied = vehicle?.status?.toLowerCase() === "denied";
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs animate-in fade-in duration-200">
@@ -188,15 +234,19 @@ export default function VehicleDetailsModal({
                   </span>
                   <span
                     className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold ${
-                      isPending
-                        ? "bg-amber-100 text-amber-800 border border-amber-200"
-                        : "bg-emerald-100 text-emerald-800 border border-emerald-200"
+                      isApproved
+                        ? "bg-emerald-100 text-emerald-800 border border-emerald-200"
+                        : isDenied
+                        ? "bg-red-100 text-red-800 border border-red-200"
+                        : "bg-amber-100 text-amber-800 border border-amber-200"
                     }`}
                   >
-                    {isPending ? (
-                      <Clock className="w-3.5 h-3.5 text-amber-600" />
-                    ) : (
+                    {isApproved ? (
                       <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
+                    ) : isDenied ? (
+                      <AlertTriangle className="w-3.5 h-3.5 text-red-600" />
+                    ) : (
+                      <Clock className="w-3.5 h-3.5 text-amber-600" />
                     )}
                     <span>{vehicle.status}</span>
                   </span>
@@ -271,8 +321,91 @@ export default function VehicleDetailsModal({
                       <span className="font-bold text-slate-800">{vehicle.approvedBy}</span>
                     </div>
                   )}
+
+                  {vehicle.deniedAt && (
+                    <div className="flex items-center justify-between border-t border-slate-100 pt-2">
+                      <span className="text-red-700 font-medium flex items-center gap-1">
+                        <AlertTriangle className="w-3.5 h-3.5" /> Denied Date
+                      </span>
+                      <span className="font-medium text-red-800">
+                        {new Date(vehicle.deniedAt).toLocaleString()}
+                      </span>
+                    </div>
+                  )}
+
+                  {vehicle.deniedBy && (
+                    <div className="flex items-center justify-between border-t border-slate-100 pt-2">
+                      <span className="text-slate-500">Denied By</span>
+                      <span className="font-bold text-slate-800">{vehicle.deniedBy}</span>
+                    </div>
+                  )}
+
+                  {vehicle.rejectionReason && (
+                    <div className="flex items-start justify-between border-t border-slate-100 pt-2">
+                      <span className="text-slate-500">Denial Reason</span>
+                      <span className="font-semibold text-red-700 max-w-[240px] text-right">
+                        {vehicle.rejectionReason}
+                      </span>
+                    </div>
+                  )}
                 </div>
               </div>
+
+              {/* Deny Reason Prompt Box */}
+              {showDenyPrompt && canApprove && isPending && (
+                <div className="p-3.5 bg-red-50 border border-red-200 rounded-xl space-y-2.5 animate-in fade-in">
+                  <div className="flex items-center justify-between">
+                    <span className="font-bold text-red-900 text-xs flex items-center gap-1.5">
+                      <AlertTriangle className="w-3.5 h-3.5 text-red-600" />
+                      <span>Deny Vehicle Registration Request</span>
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => setShowDenyPrompt(false)}
+                      className="text-xs text-slate-500 hover:text-slate-700 font-semibold cursor-pointer"
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                  <p className="text-[11px] text-red-800">
+                    A notification will be sent ONLY to the student informing them that their vehicle registration has been denied.
+                  </p>
+                  <input
+                    type="text"
+                    placeholder="Reason for denial (e.g. Unverified plate, missing documents)"
+                    value={denyReason}
+                    onChange={(e) => setDenyReason(e.target.value)}
+                    className="w-full px-3 py-2 text-xs bg-white border border-red-300 rounded-lg focus:outline-none focus:ring-1 focus:ring-red-600"
+                  />
+                  <div className="flex items-center justify-end gap-2 pt-1">
+                    <button
+                      type="button"
+                      onClick={() => setShowDenyPrompt(false)}
+                      className="px-3 py-1.5 bg-white border border-slate-300 hover:bg-slate-100 text-slate-700 font-bold text-xs rounded-lg transition cursor-pointer"
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      type="button"
+                      disabled={denying}
+                      onClick={handleDeny}
+                      className="px-4 py-1.5 bg-red-600 hover:bg-red-700 text-white font-bold text-xs rounded-lg transition cursor-pointer flex items-center gap-1.5 shadow-2xs disabled:opacity-50"
+                    >
+                      {denying ? (
+                        <>
+                          <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                          <span>Denying...</span>
+                        </>
+                      ) : (
+                        <>
+                          <AlertTriangle className="w-3.5 h-3.5" />
+                          <span>Confirm Denial</span>
+                        </>
+                      )}
+                    </button>
+                  </div>
+                </div>
+              )}
             </>
           )}
         </div>
@@ -287,25 +420,37 @@ export default function VehicleDetailsModal({
             Close
           </button>
 
-          {canApprove && isPending && (
-            <button
-              type="button"
-              disabled={approving}
-              onClick={handleApprove}
-              className="px-5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs rounded-xl flex items-center gap-1.5 shadow-xs transition cursor-pointer disabled:opacity-50"
-            >
-              {approving ? (
-                <>
-                  <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                  <span>Approving...</span>
-                </>
-              ) : (
-                <>
-                  <CheckCircle2 className="w-3.5 h-3.5" />
-                  <span>Approve Registration</span>
-                </>
-              )}
-            </button>
+          {canApprove && isPending && !showDenyPrompt && (
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                disabled={approving || denying}
+                onClick={() => setShowDenyPrompt(true)}
+                className="px-4 py-2 bg-red-50 hover:bg-red-100 text-red-700 border border-red-200 font-bold text-xs rounded-xl flex items-center gap-1.5 shadow-xs transition cursor-pointer disabled:opacity-50"
+              >
+                <AlertTriangle className="w-3.5 h-3.5 text-red-600" />
+                <span>Deny Request</span>
+              </button>
+
+              <button
+                type="button"
+                disabled={approving || denying}
+                onClick={handleApprove}
+                className="px-5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs rounded-xl flex items-center gap-1.5 shadow-xs transition cursor-pointer disabled:opacity-50"
+              >
+                {approving ? (
+                  <>
+                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                    <span>Approving...</span>
+                  </>
+                ) : (
+                  <>
+                    <CheckCircle2 className="w-3.5 h-3.5" />
+                    <span>Approve Registration</span>
+                  </>
+                )}
+              </button>
+            </div>
           )}
         </div>
       </div>

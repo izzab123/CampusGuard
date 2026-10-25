@@ -441,6 +441,8 @@ export default function StudentRegisterVehicleView() {
               <div className="space-y-2.5">
                 {myVehicles.map((item) => {
                   const isPending = item.status?.toLowerCase().includes("pending");
+                  const isApproved = item.status?.toLowerCase() === "approved";
+                  const isDenied = item.status?.toLowerCase() === "denied";
                   return (
                     <div
                       key={item.id}
@@ -453,9 +455,11 @@ export default function StudentRegisterVehicleView() {
                           </span>
                           <span
                             className={`px-2 py-0.5 rounded text-[10px] font-bold ${
-                              isPending
-                                ? "bg-amber-100 text-amber-800"
-                                : "bg-emerald-100 text-emerald-800"
+                              isApproved
+                                ? "bg-emerald-100 text-emerald-800"
+                                : isDenied
+                                ? "bg-red-100 text-red-800"
+                                : "bg-amber-100 text-amber-800"
                             }`}
                           >
                             {item.status}

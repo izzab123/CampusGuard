@@ -77,6 +77,7 @@ export const API_ENDPOINTS = {
     },
     byId: (id: number | string) => `${getApiUrl()}/api/vehicles/${id}`,
     approve: (id: number | string) => `${getApiUrl()}/api/vehicles/${id}/approve`,
+    deny: (id: number | string) => `${getApiUrl()}/api/vehicles/${id}/deny`,
     checkNumber: (vehicleNumber: string) => `${getApiUrl()}/api/vehicles/check?vehicleNumber=${encodeURIComponent(vehicleNumber)}`,
     list: (status?: string) => status ? `${getApiUrl()}/api/vehicles?status=${encodeURIComponent(status)}` : `${getApiUrl()}/api/vehicles`,
   },

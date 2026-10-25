@@ -97,6 +97,32 @@ public class VehicleController {
         return approveVehiclePatch(id, body);
     }
 
+    @PatchMapping("/{id}/deny")
+    public ResponseEntity<?> denyVehiclePatch(
+            @PathVariable Long id,
+            @RequestBody(required = false) Map<String, String> body) {
+        String deniedBy = body != null ? body.get("deniedBy") : null;
+        String reason = body != null ? body.get("reason") : null;
+        try {
+            VehicleRegistration denied = vehicleService.denyRegistration(id, reason, deniedBy);
+            return ResponseEntity.ok(denied);
+        } catch (NoSuchElementException ex) {
+            return ResponseEntity.notFound().build();
+        } catch (Exception ex) {
+            return ResponseEntity.badRequest().body(Map.of(
+                    "error", "Denial failed",
+                    "message", ex.getMessage()
+            ));
+        }
+    }
+
+    @PostMapping("/{id}/deny")
+    public ResponseEntity<?> denyVehiclePost(
+            @PathVariable Long id,
+            @RequestBody(required = false) Map<String, String> body) {
+        return denyVehiclePatch(id, body);
+    }
+
     @GetMapping("/check")
     public ResponseEntity<Map<String, Object>> checkAvailability(@RequestParam("vehicleNumber") String vehicleNumber) {
         boolean available = vehicleService.isVehicleNumberAvailable(vehicleNumber);
