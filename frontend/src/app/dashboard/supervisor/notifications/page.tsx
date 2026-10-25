@@ -220,6 +220,12 @@ export default function SupervisorNotificationsPage() {
                 Dashboard
               </Link>
               <Link
+                href="/dashboard/supervisor/incidents"
+                className="py-5 relative transition cursor-pointer text-slate-600 hover:text-slate-900"
+              >
+                Incident Tracking
+              </Link>
+              <Link
                 href="/dashboard/supervisor/shifts"
                 className="py-5 relative transition cursor-pointer text-slate-600 hover:text-slate-900"
               >
@@ -313,6 +319,12 @@ export default function SupervisorNotificationsPage() {
                 className="w-full flex items-center px-3.5 py-2.5 rounded-lg text-xs font-semibold text-slate-600 hover:bg-slate-100 hover:text-slate-900 transition"
               >
                 Dashboard
+              </Link>
+              <Link
+                href="/dashboard/supervisor/incidents"
+                className="w-full flex items-center px-3.5 py-2.5 rounded-lg text-xs font-semibold text-slate-600 hover:bg-slate-100 hover:text-slate-900 transition"
+              >
+                Incident Tracking
               </Link>
               <Link
                 href="/dashboard/supervisor/shifts"

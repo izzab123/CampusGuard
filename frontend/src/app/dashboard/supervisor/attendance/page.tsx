@@ -182,6 +182,12 @@ export default function SupervisorAttendancePage() {
                 Dashboard
               </Link>
               <Link
+                href="/dashboard/supervisor/incidents"
+                className="py-5 relative transition cursor-pointer text-slate-600 hover:text-slate-900"
+              >
+                Incident Tracking
+              </Link>
+              <Link
                 href="/dashboard/supervisor/shifts"
                 className="py-5 relative transition cursor-pointer text-slate-600 hover:text-slate-900"
               >
