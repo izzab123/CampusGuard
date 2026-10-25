@@ -114,6 +114,29 @@ export const API_ENDPOINTS = {
     byId: (id: number | string) => `${getApiUrl()}/api/supervisor/occurrence-register/${id}`,
     addRemark: (id: number | string) => `${getApiUrl()}/api/supervisor/occurrence-register/${id}/remarks`,
   },
+  supervisorReports: {
+    summary: (params: { reportType: string; startDate?: string; endDate?: string }) => {
+      const sp = new URLSearchParams();
+      if (params.reportType) sp.set("reportType", params.reportType);
+      if (params.startDate) sp.set("startDate", params.startDate);
+      if (params.endDate) sp.set("endDate", params.endDate);
+      return `${getApiUrl()}/api/supervisor/reports/summary?${sp.toString()}`;
+    },
+    exportCsv: (params: { reportType: string; startDate?: string; endDate?: string }) => {
+      const sp = new URLSearchParams();
+      if (params.reportType) sp.set("reportType", params.reportType);
+      if (params.startDate) sp.set("startDate", params.startDate);
+      if (params.endDate) sp.set("endDate", params.endDate);
+      return `${getApiUrl()}/api/supervisor/reports/export/csv?${sp.toString()}`;
+    },
+    exportPdf: (params: { reportType: string; startDate?: string; endDate?: string }) => {
+      const sp = new URLSearchParams();
+      if (params.reportType) sp.set("reportType", params.reportType);
+      if (params.startDate) sp.set("startDate", params.startDate);
+      if (params.endDate) sp.set("endDate", params.endDate);
+      return `${getApiUrl()}/api/supervisor/reports/export/pdf?${sp.toString()}`;
+    },
+  },
   features: `${getApiUrl()}/api/features`,
   status: `${getApiUrl()}/api/status`,
 };
