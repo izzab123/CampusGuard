@@ -32,6 +32,7 @@ export interface VehicleRegistrationDetail {
   deniedAt?: string;
   deniedBy?: string;
   rejectionReason?: string;
+  qrCode?: string;
 }
 
 interface VehicleDetailsModalProps {

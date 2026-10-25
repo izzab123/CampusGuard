@@ -12,11 +12,12 @@ import {
   LayoutDashboard,
   LogOut,
   PhoneCall,
-  Car
+  Car,
+  SquareParking
 } from "lucide-react";
 import { performLogout } from "@/lib/auth";
 
-export type StudentTab = "Dashboard" | "My QR code" | "Register vehicle" | "Report incident" | "Notifications" | "Profile";
+export type StudentTab = "Dashboard" | "My QR code" | "Register vehicle" | "Park Vehicle" | "Report incident" | "Notifications" | "Profile";
 
 interface StudentLayoutProps {
   activeTab: StudentTab;
@@ -28,6 +29,7 @@ const NAV_ITEMS: { name: StudentTab; path: string; icon: React.ElementType }[] =
   { name: "Dashboard", path: "/dashboard/student", icon: LayoutDashboard },
   { name: "My QR code", path: "/dashboard/student/qr", icon: QrCode },
   { name: "Register vehicle", path: "/dashboard/student/register-vehicle", icon: Car },
+  { name: "Park Vehicle", path: "/dashboard/student/park-vehicle", icon: SquareParking },
   { name: "Report incident", path: "/dashboard/student/report", icon: AlertTriangle },
   { name: "Notifications", path: "/dashboard/student/notifications", icon: Bell },
   { name: "Profile", path: "/dashboard/student/profile", icon: UserCheck },

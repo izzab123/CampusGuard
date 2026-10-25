@@ -62,6 +62,7 @@ public class VehicleRegistrationService {
         reg.setSubmittedByEmail(req.getEmail() != null ? req.getEmail().trim() : null);
         reg.setStatus("Pending approval");
         reg.setCreatedAt(LocalDateTime.now());
+        reg.setQrCode("CG-QR-" + UUID.randomUUID().toString().replace("-", "").substring(0, 12).toUpperCase());
 
         VehicleRegistration saved = vehicleRepo.save(reg);
 
@@ -98,7 +99,9 @@ public class VehicleRegistrationService {
         if (parkingPassRepo.findByPlateNumber(reg.getVehicleNumber()).isEmpty()) {
             ParkingPass pass = new ParkingPass();
             pass.setPlateNumber(reg.getVehicleNumber());
-            pass.setPassToken("CG-PASS-" + UUID.randomUUID().toString().substring(0, 8).toUpperCase());
+            pass.setPassToken(reg.getQrCode() != null && !reg.getQrCode().isBlank()
+                    ? reg.getQrCode()
+                    : ("CG-PASS-" + UUID.randomUUID().toString().substring(0, 8).toUpperCase()));
             pass.setZoneName("Lot C • Student Resident");
             pass.setOwnerName(reg.getOwnerName());
             pass.setOwnerType("STUDENT");
@@ -186,28 +189,51 @@ public class VehicleRegistrationService {
         return updated;
     }
 
-    @Transactional(readOnly = true)
+    @Transactional
     public Optional<VehicleRegistration> getById(Long id) {
-        return vehicleRepo.findById(id);
+        return vehicleRepo.findById(id).map(v -> {
+            if (v.getQrCode() == null || v.getQrCode().isBlank()) {
+                v.setQrCode("CG-QR-" + UUID.randomUUID().toString().replace("-", "").substring(0, 12).toUpperCase());
+                return vehicleRepo.save(v);
+            }
+            return v;
+        });
     }
 
-    @Transactional(readOnly = true)
+    @Transactional
     public List<VehicleRegistration> getMyRegistrations(String email, String studentId) {
+        List<VehicleRegistration> list;
         if (email != null && !email.isBlank()) {
-            return vehicleRepo.findBySubmittedByEmailIgnoreCaseOrderByCreatedAtDesc(email.trim());
+            list = vehicleRepo.findBySubmittedByEmailIgnoreCaseOrderByCreatedAtDesc(email.trim());
+        } else if (studentId != null && !studentId.isBlank()) {
+            list = vehicleRepo.findByStudentIdIgnoreCaseOrderByCreatedAtDesc(studentId.trim());
+        } else {
+            list = vehicleRepo.findAllByOrderByCreatedAtDesc();
         }
-        if (studentId != null && !studentId.isBlank()) {
-            return vehicleRepo.findByStudentIdIgnoreCaseOrderByCreatedAtDesc(studentId.trim());
+        for (VehicleRegistration v : list) {
+            if (v.getQrCode() == null || v.getQrCode().isBlank()) {
+                v.setQrCode("CG-QR-" + UUID.randomUUID().toString().replace("-", "").substring(0, 12).toUpperCase());
+                vehicleRepo.save(v);
+            }
         }
-        return vehicleRepo.findAllByOrderByCreatedAtDesc();
+        return list;
     }
 
-    @Transactional(readOnly = true)
+    @Transactional
     public List<VehicleRegistration> getAllRegistrations(String status) {
+        List<VehicleRegistration> list;
         if (status != null && !status.isBlank()) {
-            return vehicleRepo.findByStatusIgnoreCaseOrderByCreatedAtDesc(status.trim());
+            list = vehicleRepo.findByStatusIgnoreCaseOrderByCreatedAtDesc(status.trim());
+        } else {
+            list = vehicleRepo.findAllByOrderByCreatedAtDesc();
         }
-        return vehicleRepo.findAllByOrderByCreatedAtDesc();
+        for (VehicleRegistration v : list) {
+            if (v.getQrCode() == null || v.getQrCode().isBlank()) {
+                v.setQrCode("CG-QR-" + UUID.randomUUID().toString().replace("-", "").substring(0, 12).toUpperCase());
+                vehicleRepo.save(v);
+            }
+        }
+        return list;
     }
 
     @Transactional(readOnly = true)
