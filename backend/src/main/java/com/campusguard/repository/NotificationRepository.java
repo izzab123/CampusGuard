@@ -14,8 +14,16 @@ public interface NotificationRepository extends JpaRepository<Notification, Long
     List<Notification> findByCategoryIgnoreCaseOrderByCreatedAtDesc(String category);
 
     @org.springframework.data.jpa.repository.Query("SELECT n FROM Notification n WHERE " +
-           "((:role IS NOT NULL AND (LOWER(n.recipientRole) = LOWER(:role) OR LOWER(n.recipientRole) = 'all')) " +
-           " AND (n.recipientEmail IS NULL OR n.recipientEmail = '' OR (:email IS NOT NULL AND LOWER(n.recipientEmail) = LOWER(:email)))) " +
+           "(:role IS NOT NULL AND (" +
+           "   LOWER(n.recipientRole) = LOWER(:role) " +
+           "   OR LOWER(n.recipientRole) = 'all' " +
+           "   OR (LOWER(:role) IN ('guard', 'security guard') AND LOWER(n.recipientRole) IN ('guard', 'security guard')) " +
+           "   OR (LOWER(:role) IN ('proctor', 'proctor and dsw') AND LOWER(n.recipientRole) IN ('proctor', 'proctor and dsw')) " +
+           "   OR (LOWER(:role) IN ('admin', 'super admin') AND LOWER(n.recipientRole) IN ('admin', 'super admin'))" +
+           ") AND (" +
+           "   LOWER(n.recipientRole) IN ('admin', 'super admin', 'shift supervisor', 'security guard', 'guard', 'proctor', 'proctor and dsw') " +
+           "   OR n.recipientEmail IS NULL OR n.recipientEmail = '' OR (:email IS NOT NULL AND LOWER(n.recipientEmail) = LOWER(:email))" +
+           ")) " +
            "OR (:email IS NOT NULL AND LOWER(n.recipientEmail) = LOWER(:email)) " +
            "ORDER BY n.createdAt DESC")
     List<Notification> findForRecipient(

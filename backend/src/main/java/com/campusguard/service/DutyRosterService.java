@@ -6,6 +6,7 @@ import com.campusguard.model.DutyReassignmentHistory;
 import com.campusguard.model.DutyRoster;
 import com.campusguard.model.Notification;
 import com.campusguard.repository.*;
+import com.campusguard.repository.UserRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;

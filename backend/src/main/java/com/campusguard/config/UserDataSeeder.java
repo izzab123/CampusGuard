@@ -43,9 +43,15 @@ public class UserDataSeeder {
                     existing -> {
                         existing.setPassword(user.getPassword());
                         existing.setRole(user.getRole());
-                        existing.setFullName(user.getFullName());
-                        existing.setBadgeNumber(user.getBadgeNumber());
-                        existing.setDepartment(user.getDepartment());
+                        if (existing.getFullName() == null || existing.getFullName().isBlank()) {
+                            existing.setFullName(user.getFullName());
+                        }
+                        if (existing.getBadgeNumber() == null || existing.getBadgeNumber().isBlank()) {
+                            existing.setBadgeNumber(user.getBadgeNumber());
+                        }
+                        if (existing.getDepartment() == null || existing.getDepartment().isBlank()) {
+                            existing.setDepartment(user.getDepartment());
+                        }
                         existing.setStatus("ACTIVE");
                         userRepository.save(existing);
                     },

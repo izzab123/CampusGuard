@@ -11,6 +11,8 @@ public class LoginResponse {
     private String badgeNumber;
     private String department;
     private Long userId;
+    private String profilePicture;
+    private String profileReviewStatus;
 
     public LoginResponse() {}
 
@@ -30,6 +32,12 @@ public class LoginResponse {
         this.userId = userId;
     }
 
+    public LoginResponse(boolean success, String message, String token, String email, String role, String fullName, String badgeNumber, String department, Long userId, String profilePicture, String profileReviewStatus) {
+        this(success, message, token, email, role, fullName, badgeNumber, department, userId);
+        this.profilePicture = profilePicture;
+        this.profileReviewStatus = profileReviewStatus;
+    }
+
     public static LoginResponse failure(String message) {
         LoginResponse res = new LoginResponse();
         res.setSuccess(false);
@@ -43,6 +51,10 @@ public class LoginResponse {
 
     public static LoginResponse success(String token, String email, String role, String fullName, String badgeNumber, String department, Long userId) {
         return new LoginResponse(true, "Authentication successful", token, email, role, fullName, badgeNumber, department, userId);
+    }
+
+    public static LoginResponse success(String token, String email, String role, String fullName, String badgeNumber, String department, Long userId, String profilePicture, String profileReviewStatus) {
+        return new LoginResponse(true, "Authentication successful", token, email, role, fullName, badgeNumber, department, userId, profilePicture, profileReviewStatus);
     }
 
     public boolean isSuccess() {
@@ -115,5 +127,21 @@ public class LoginResponse {
 
     public void setUserId(Long userId) {
         this.userId = userId;
+    }
+
+    public String getProfilePicture() {
+        return profilePicture;
+    }
+
+    public void setProfilePicture(String profilePicture) {
+        this.profilePicture = profilePicture;
+    }
+
+    public String getProfileReviewStatus() {
+        return profileReviewStatus;
+    }
+
+    public void setProfileReviewStatus(String profileReviewStatus) {
+        this.profileReviewStatus = profileReviewStatus;
     }
 }

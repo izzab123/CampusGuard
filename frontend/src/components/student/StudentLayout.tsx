@@ -1,6 +1,6 @@
 "use client";
 
-import React, { ReactNode } from "react";
+import React, { ReactNode, useState, useEffect } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import {
@@ -15,7 +15,8 @@ import {
   Car,
   SquareParking
 } from "lucide-react";
-import { performLogout } from "@/lib/auth";
+import { performLogout, getStoredAuthUser, saveAuthUser, AuthUser } from "@/lib/auth";
+import { API_ENDPOINTS } from "@/lib/api";
 
 export type StudentTab = "Dashboard" | "My QR code" | "Register vehicle" | "Park Vehicle" | "Report incident" | "Notifications" | "Profile";
 
@@ -40,6 +41,60 @@ export default function StudentLayout({
   children,
   onTabChange,
 }: StudentLayoutProps) {
+  const [user, setUser] = useState<AuthUser | null>(null);
+
+  useEffect(() => {
+    const stored = getStoredAuthUser();
+    if (stored) {
+      setUser(stored);
+      if (stored.email) {
+        fetch(`${API_ENDPOINTS.auth.profile}?email=${encodeURIComponent(stored.email)}`)
+          .then((res) => (res.ok ? res.json() : null))
+          .then((data) => {
+            if (data) {
+              const updated: AuthUser = {
+                ...stored,
+                fullName: data.fullName || stored.fullName,
+                name: data.fullName || stored.name,
+                department: data.department || stored.department,
+                badgeNumber: data.badgeNumber || stored.badgeNumber,
+                profilePicture: data.profilePicture !== undefined ? data.profilePicture : stored.profilePicture,
+                profileReviewStatus: data.profileReviewStatus || stored.profileReviewStatus,
+              };
+              saveAuthUser(updated);
+              setUser(updated);
+            }
+          })
+          .catch(() => {});
+      }
+    }
+
+    const handleAuthChange = (e: any) => {
+      if (e.detail) {
+        setUser(e.detail);
+      } else {
+        setUser(getStoredAuthUser());
+      }
+    };
+
+    window.addEventListener("campusguard_auth_change", handleAuthChange);
+    window.addEventListener("storage", handleAuthChange);
+    return () => {
+      window.removeEventListener("campusguard_auth_change", handleAuthChange);
+      window.removeEventListener("storage", handleAuthChange);
+    };
+  }, []);
+
+  const displayName = user?.fullName || user?.name || "Alex Morgan";
+  const displayBadge = user?.badgeNumber || "#STU-88201";
+  const displayDept = user?.department || "Dept. of Computer Science & Eng.";
+  const initials = displayName
+    .split(" ")
+    .filter(Boolean)
+    .map((n: string) => n[0])
+    .join("")
+    .slice(0, 2)
+    .toUpperCase() || "AM";
   return (
     <div className="min-h-screen bg-[#f8fafc] text-slate-900 font-sans flex flex-col antialiased">
       {/* 1. TOP APP HEADER */}
@@ -102,32 +157,42 @@ export default function StudentLayout({
               <span className="absolute top-1.5 right-1.5 w-2 h-2 rounded-full bg-red-600 ring-2 ring-white"></span>
             </Link>
 
-            {/* Alex Morgan Profile Badge */}
+            {/* Student Dynamic Profile Badge */}
             <div className="flex items-center gap-2.5 pl-2 border-l border-slate-200">
               <Link
                 href="/dashboard/student/profile"
                 onClick={() => onTabChange && onTabChange("Profile")}
                 className="flex items-center gap-2.5 group cursor-pointer"
               >
-                <div className="w-9 h-9 rounded-full overflow-hidden bg-[#0a2f77] ring-1 ring-slate-200 relative flex items-center justify-center text-white font-bold text-xs">
-                  <Image
-                    src="/student-alex.jpg"
-                    alt="Alex Morgan"
-                    width={36}
-                    height={36}
-                    className="w-full h-full object-cover"
-                    onError={(e) => {
-                      (e.target as HTMLElement).style.display = "none";
-                    }}
-                  />
-                  <span className="absolute">AM</span>
+                <div className="w-9 h-9 rounded-full overflow-hidden bg-[#0a2f77] ring-1 ring-slate-200 relative flex items-center justify-center text-white font-bold text-xs shrink-0">
+                  {user?.profilePicture ? (
+                    <img
+                      src={user.profilePicture}
+                      alt={displayName}
+                      className="w-full h-full object-cover"
+                    />
+                  ) : (
+                    <>
+                      <Image
+                        src="/student-alex.jpg"
+                        alt={displayName}
+                        width={36}
+                        height={36}
+                        className="w-full h-full object-cover"
+                        onError={(e) => {
+                          (e.target as HTMLElement).style.display = "none";
+                        }}
+                      />
+                      <span className="absolute">{initials}</span>
+                    </>
+                  )}
                 </div>
                 <div className="hidden lg:flex flex-col text-left">
                   <span className="text-xs font-bold text-slate-900 group-hover:text-blue-800 transition leading-tight">
-                    Alex Morgan <span className="text-slate-500 font-normal">#STU-88201</span>
+                    {displayName} <span className="text-slate-500 font-normal">{displayBadge}</span>
                   </span>
                   <span className="text-[11px] text-slate-500 leading-tight">
-                    Dept. of Computer Science
+                    {displayDept}
                   </span>
                 </div>
               </Link>

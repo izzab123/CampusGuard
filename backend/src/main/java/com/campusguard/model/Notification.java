@@ -38,6 +38,7 @@ public class Notification {
     private Long shiftId;
     private Long incidentId;
     private Long vehicleRegistrationId;
+    private Long profileRequestId;
 
     @Column(nullable = false)
     private LocalDateTime createdAt;
@@ -124,6 +125,9 @@ public class Notification {
 
     public Long getVehicleRegistrationId() { return vehicleRegistrationId; }
     public void setVehicleRegistrationId(Long vehicleRegistrationId) { this.vehicleRegistrationId = vehicleRegistrationId; }
+
+    public Long getProfileRequestId() { return profileRequestId; }
+    public void setProfileRequestId(Long profileRequestId) { this.profileRequestId = profileRequestId; }
 
     public LocalDateTime getCreatedAt() { return createdAt; }
     public void setCreatedAt(LocalDateTime createdAt) { this.createdAt = createdAt; }

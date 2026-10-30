@@ -10,6 +10,7 @@ import {
   Gavel
 } from "lucide-react";
 import { API_ENDPOINTS } from "@/lib/api";
+import { getStoredAuthUser } from "@/lib/auth";
 import IncidentDetailsModal from "@/components/incidents/IncidentDetailsModal";
 
 interface NotificationItem {
@@ -29,6 +30,7 @@ export default function ProctorNotificationsView() {
   const [actionNotice, setActionNotice] = useState<string | null>(null);
   const [selectedIncidentId, setSelectedIncidentId] = useState<number | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isRefreshing, setIsRefreshing] = useState(false);
 
   const handleOpenIncident = (notif: NotificationItem) => {
     if (notif.incidentId) {
@@ -40,9 +42,11 @@ export default function ProctorNotificationsView() {
     }
   };
 
-  const fetchNotifications = async () => {
+  const fetchNotifications = async (isManualClick = false) => {
+    if (isManualClick) setIsRefreshing(true);
     try {
-      const res = await fetch(API_ENDPOINTS.notifications.byRole("Proctor and DSW"));
+      const user = getStoredAuthUser();
+      const res = await fetch(API_ENDPOINTS.notifications.byRole("Proctor and DSW", user?.email || undefined));
       if (res.ok) {
         const data = await res.json();
         const normalized = (Array.isArray(data) ? data : []).map((n: any) => ({
@@ -50,8 +54,19 @@ export default function ProctorNotificationsView() {
           isRead: Boolean(n.isRead ?? n.read ?? false),
         }));
         setNotifications(normalized);
+        if (isManualClick) {
+          handleAction(`Proctor alerts feed refreshed (${new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })}).`);
+        }
       }
-    } catch {}
+    } catch {
+      if (isManualClick) {
+        handleAction("Failed to refresh proctor alerts. Check server connection.");
+      }
+    } finally {
+      if (isManualClick) {
+        setTimeout(() => setIsRefreshing(false), 300);
+      }
+    }
   };
 
   useEffect(() => {
@@ -114,11 +129,12 @@ export default function ProctorNotificationsView() {
 
         <button
           type="button"
-          onClick={fetchNotifications}
-          className="px-3.5 py-2 bg-white border border-slate-300 hover:bg-slate-50 text-slate-700 font-bold text-xs rounded-lg flex items-center gap-1.5 shadow-xs transition cursor-pointer self-start"
+          onClick={() => fetchNotifications(true)}
+          disabled={isRefreshing}
+          className="px-3.5 py-2 bg-white border border-slate-300 hover:bg-slate-50 text-slate-700 font-bold text-xs rounded-lg flex items-center gap-1.5 shadow-xs transition cursor-pointer disabled:opacity-60 self-start"
         >
-          <RotateCcw className="w-3.5 h-3.5 text-slate-500" />
-          <span>Refresh</span>
+          <RotateCcw className={`w-3.5 h-3.5 text-slate-500 ${isRefreshing ? "animate-spin" : ""}`} />
+          <span>{isRefreshing ? "Refreshing..." : "Refresh Feed"}</span>
         </button>
       </div>
 

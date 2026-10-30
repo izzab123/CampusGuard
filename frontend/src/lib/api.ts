@@ -155,4 +155,11 @@ export const API_ENDPOINTS = {
   },
   features: `${getApiUrl()}/api/features`,
   status: `${getApiUrl()}/api/status`,
+  profileRequests: {
+    base: `${getApiUrl()}/api/profile-requests`,
+    list: (status?: string) => status ? `${getApiUrl()}/api/profile-requests?status=${encodeURIComponent(status)}` : `${getApiUrl()}/api/profile-requests`,
+    byId: (id: number | string) => `${getApiUrl()}/api/profile-requests/${id}`,
+    approve: (id: number | string) => `${getApiUrl()}/api/profile-requests/${id}/approve`,
+    deny: (id: number | string) => `${getApiUrl()}/api/profile-requests/${id}/deny`,
+  },
 };

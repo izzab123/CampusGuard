@@ -13,8 +13,11 @@ import {
   Car
 } from "lucide-react";
 import { API_ENDPOINTS } from "@/lib/api";
+import { getStoredAuthUser } from "@/lib/auth";
 import IncidentDetailsModal from "@/components/incidents/IncidentDetailsModal";
 import VehicleDetailsModal from "@/components/vehicles/VehicleDetailsModal";
+import ProfileChangeModal from "@/components/profile/ProfileChangeModal";
+import { UserCheck } from "lucide-react";
 
 interface NotificationItem {
   id: number;
@@ -25,6 +28,7 @@ interface NotificationItem {
   recipientRole?: string;
   incidentId?: number;
   vehicleRegistrationId?: number;
+  profileRequestId?: number;
   isRead: boolean;
   createdAt: string;
 }
@@ -37,10 +41,15 @@ export default function AdminNotificationsView() {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedVehicleId, setSelectedVehicleId] = useState<number | null>(null);
   const [isVehicleModalOpen, setIsVehicleModalOpen] = useState(false);
+  const [selectedProfileRequestId, setSelectedProfileRequestId] = useState<number | null>(null);
+  const [isProfileModalOpen, setIsProfileModalOpen] = useState(false);
+  const [isRefreshing, setIsRefreshing] = useState(false);
 
-  const fetchNotifications = async () => {
+  const fetchNotifications = async (isManualClick = false) => {
+    if (isManualClick) setIsRefreshing(true);
     try {
-      const res = await fetch(API_ENDPOINTS.notifications.byRole("Admin"));
+      const user = getStoredAuthUser();
+      const res = await fetch(API_ENDPOINTS.notifications.byRole("Admin", user?.email || undefined));
       if (res.ok) {
         const data = await res.json();
         const normalized = (Array.isArray(data) ? data : []).map((n: any) => ({
@@ -48,8 +57,19 @@ export default function AdminNotificationsView() {
           isRead: Boolean(n.isRead ?? n.read ?? false),
         }));
         setNotifications(normalized);
+        if (isManualClick) {
+          handleAction(`Admin notifications feed refreshed (${new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })}).`);
+        }
       }
-    } catch {}
+    } catch {
+      if (isManualClick) {
+        handleAction("Failed to refresh admin notifications. Check server connection.");
+      }
+    } finally {
+      if (isManualClick) {
+        setTimeout(() => setIsRefreshing(false), 300);
+      }
+    }
   };
 
   useEffect(() => {
@@ -70,6 +90,16 @@ export default function AdminNotificationsView() {
     if (notif.vehicleRegistrationId) {
       setSelectedVehicleId(notif.vehicleRegistrationId);
       setIsVehicleModalOpen(true);
+      if (!notif.isRead) {
+        handleMarkAsRead(notif.id);
+      }
+    }
+  };
+
+  const handleOpenProfileRequest = (notif: NotificationItem) => {
+    if (notif.profileRequestId) {
+      setSelectedProfileRequestId(notif.profileRequestId);
+      setIsProfileModalOpen(true);
       if (!notif.isRead) {
         handleMarkAsRead(notif.id);
       }
@@ -132,11 +162,12 @@ export default function AdminNotificationsView() {
 
         <button
           type="button"
-          onClick={fetchNotifications}
-          className="px-3.5 py-2 bg-white border border-slate-300 hover:bg-slate-50 text-slate-700 font-bold text-xs rounded-lg flex items-center gap-1.5 shadow-xs transition cursor-pointer self-start"
+          onClick={() => fetchNotifications(true)}
+          disabled={isRefreshing}
+          className="px-3.5 py-2 bg-white border border-slate-300 hover:bg-slate-50 text-slate-700 font-bold text-xs rounded-lg flex items-center gap-1.5 shadow-xs transition cursor-pointer disabled:opacity-60 self-start"
         >
-          <RotateCcw className="w-3.5 h-3.5 text-slate-500" />
-          <span>Refresh Feed</span>
+          <RotateCcw className={`w-3.5 h-3.5 text-slate-500 ${isRefreshing ? "animate-spin" : ""}`} />
+          <span>{isRefreshing ? "Refreshing..." : "Refresh Feed"}</span>
         </button>
       </div>
 
@@ -206,6 +237,11 @@ export default function AdminNotificationsView() {
                       #VEH-{item.vehicleRegistrationId}
                     </span>
                   )}
+                  {item.profileRequestId && (
+                    <span className="px-2 py-0.5 rounded text-[10px] font-mono font-bold bg-purple-100 text-purple-800 border border-purple-300">
+                      #PROFILE-{item.profileRequestId}
+                    </span>
+                  )}
                 </div>
                 <p className="text-xs text-slate-600 leading-relaxed max-w-3xl">
                   {item.message}
@@ -216,6 +252,17 @@ export default function AdminNotificationsView() {
               </div>
 
               <div className="flex items-center gap-2 self-start shrink-0 flex-wrap">
+                {item.profileRequestId && (
+                  <button
+                    type="button"
+                    onClick={() => handleOpenProfileRequest(item)}
+                    className="px-3 py-1.5 bg-[#0a2f77] hover:bg-[#082660] text-white font-bold text-xs rounded-lg transition cursor-pointer flex items-center gap-1.5 shadow-2xs"
+                  >
+                    <UserCheck className="w-3.5 h-3.5" />
+                    <span>Review Profile Change</span>
+                  </button>
+                )}
+
                 {item.vehicleRegistrationId && (
                   <button
                     type="button"
@@ -280,6 +327,24 @@ export default function AdminNotificationsView() {
         onClose={() => {
           setIsVehicleModalOpen(false);
           setSelectedVehicleId(null);
+        }}
+      />
+
+      {/* Student Profile Change Review Modal */}
+      <ProfileChangeModal
+        isOpen={isProfileModalOpen}
+        requestId={selectedProfileRequestId}
+        onApproved={() => {
+          fetchNotifications();
+          handleAction("Student profile change approved! Notification sent to student.");
+        }}
+        onDenied={() => {
+          fetchNotifications();
+          handleAction("Student profile change denied. Profile details reverted and reason sent to student.");
+        }}
+        onClose={() => {
+          setIsProfileModalOpen(false);
+          setSelectedProfileRequestId(null);
         }}
       />
     </div>
