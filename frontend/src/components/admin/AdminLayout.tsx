@@ -1,6 +1,6 @@
 "use client";
 
-import React, { ReactNode } from "react";
+import React, { useState, ReactNode } from "react";
 import Link from "next/link";
 import {
   ShieldCheck,
@@ -10,9 +10,11 @@ import {
   User,
   Bell,
   LogOut,
-  Power
+  Power,
+  UserPlus
 } from "lucide-react";
 import { performLogout } from "@/lib/auth";
+import CreateAccountModal from "@/components/admin/CreateAccountModal";
 
 export type AdminTab = "Dashboard" | "Users & Roles" | "Security Audit Logs" | "Notifications" | "Profile";
 
@@ -35,6 +37,7 @@ export default function AdminLayout({
   children,
   onTabChange,
 }: AdminLayoutProps) {
+  const [isCreateAccountOpen, setIsCreateAccountOpen] = useState(false);
   return (
     <div className="min-h-screen bg-[#f8fafc] text-slate-900 font-sans flex flex-col antialiased">
       {/* 1. TOP APP HEADER */}
@@ -95,6 +98,17 @@ export default function AdminLayout({
             ) : (
               <span className="w-2.5 h-2.5 rounded-full bg-rose-500 animate-pulse hidden sm:inline-block"></span>
             )}
+
+            {/* Create Account Button in Top Bar */}
+            <button
+              type="button"
+              onClick={() => setIsCreateAccountOpen(true)}
+              className="px-3 py-1.5 bg-[#0a2f77] hover:bg-[#082660] text-white text-xs font-bold rounded-lg flex items-center gap-1.5 shadow-xs transition cursor-pointer"
+              title="Create Account"
+            >
+              <UserPlus className="w-3.5 h-3.5" />
+              <span>Create Account</span>
+            </button>
 
             {/* Bell Icon */}
             <Link
@@ -178,6 +192,19 @@ export default function AdminLayout({
                 );
               })}
             </nav>
+
+            {/* Create Account Button in Sidebar */}
+            <div className="pt-2 px-1">
+              <button
+                type="button"
+                onClick={() => setIsCreateAccountOpen(true)}
+                className="w-full flex items-center justify-center gap-2 px-3.5 py-2.5 bg-[#0a2f77] hover:bg-[#082660] text-white text-xs font-bold rounded-xl shadow-xs transition cursor-pointer"
+                title="Create Account"
+              >
+                <UserPlus className="w-4 h-4" />
+                <span>Create Account</span>
+              </button>
+            </div>
           </div>
         </aside>
 
@@ -186,6 +213,12 @@ export default function AdminLayout({
           {children}
         </main>
       </div>
+
+      {/* Create Account Modal */}
+      <CreateAccountModal
+        isOpen={isCreateAccountOpen}
+        onClose={() => setIsCreateAccountOpen(false)}
+      />
     </div>
   );
 }

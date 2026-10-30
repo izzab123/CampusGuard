@@ -10,6 +10,8 @@ export interface AuthUser {
   department?: string;
   phoneNumber?: string;
   token?: string;
+  profilePicture?: string;
+  profileReviewStatus?: string;
 }
 
 const AUTH_STORAGE_KEY = "campusguard_auth_user";
@@ -34,6 +36,7 @@ export function getRoleDashboardPath(role: string): string {
 export function saveAuthUser(user: AuthUser): void {
   if (typeof window !== "undefined") {
     localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(user));
+    window.dispatchEvent(new CustomEvent("campusguard_auth_change", { detail: user }));
   }
 }
 
@@ -58,6 +61,7 @@ export function updateStoredAuthUser(updates: Partial<AuthUser>): AuthUser | nul
 export function clearAuthUser(): void {
   if (typeof window !== "undefined") {
     localStorage.removeItem(AUTH_STORAGE_KEY);
+    window.dispatchEvent(new CustomEvent("campusguard_auth_change", { detail: null }));
   }
 }
 

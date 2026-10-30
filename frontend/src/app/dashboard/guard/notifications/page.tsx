@@ -34,8 +34,10 @@ export default function GuardNotificationsPage() {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedVehicleId, setSelectedVehicleId] = useState<number | null>(null);
   const [isVehicleModalOpen, setIsVehicleModalOpen] = useState(false);
+  const [isRefreshing, setIsRefreshing] = useState(false);
 
-  const fetchNotifications = async () => {
+  const fetchNotifications = async (isManualClick = false) => {
+    if (isManualClick) setIsRefreshing(true);
     try {
       const user = getStoredAuthUser();
       const res = await fetch(API_ENDPOINTS.notifications.byRole("Security Guard", user?.email || undefined));
@@ -46,8 +48,19 @@ export default function GuardNotificationsPage() {
           isRead: Boolean(n.isRead ?? n.read ?? false),
         }));
         setNotifications(normalized);
+        if (isManualClick) {
+          handleAction(`Field dispatch alerts refreshed (${new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })}).`);
+        }
       }
-    } catch {}
+    } catch {
+      if (isManualClick) {
+        handleAction("Failed to refresh dispatch alerts. Check connection.");
+      }
+    } finally {
+      if (isManualClick) {
+        setTimeout(() => setIsRefreshing(false), 300);
+      }
+    }
   };
 
   useEffect(() => {
@@ -170,11 +183,12 @@ export default function GuardNotificationsPage() {
 
           <button
             type="button"
-            onClick={fetchNotifications}
-            className="px-3.5 py-2 bg-white border border-slate-300 hover:bg-slate-50 text-slate-700 font-bold text-xs rounded-lg flex items-center gap-1.5 shadow-xs transition cursor-pointer self-start"
+            onClick={() => fetchNotifications(true)}
+            disabled={isRefreshing}
+            className="px-3.5 py-2 bg-white border border-slate-300 hover:bg-slate-50 text-slate-700 font-bold text-xs rounded-lg flex items-center gap-1.5 shadow-xs transition cursor-pointer disabled:opacity-60 self-start"
           >
-            <RotateCcw className="w-3.5 h-3.5 text-slate-500" />
-            <span>Refresh</span>
+            <RotateCcw className={`w-3.5 h-3.5 text-slate-500 ${isRefreshing ? "animate-spin" : ""}`} />
+            <span>{isRefreshing ? "Refreshing..." : "Refresh Feed"}</span>
           </button>
         </div>
 

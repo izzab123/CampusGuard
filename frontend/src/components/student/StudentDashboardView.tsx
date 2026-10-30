@@ -48,6 +48,18 @@ export default function StudentDashboardView() {
         if (data) setParkingPass(data);
       })
       .catch(() => {});
+
+    const handleAuthChange = (e: any) => {
+      if (e.detail) {
+        setUser(e.detail);
+      } else {
+        setUser(getStoredAuthUser());
+      }
+    };
+    window.addEventListener("campusguard_auth_change", handleAuthChange);
+    return () => {
+      window.removeEventListener("campusguard_auth_change", handleAuthChange);
+    };
   }, []);
 
   const handleAction = (msg: string) => {

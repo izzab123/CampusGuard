@@ -15,9 +15,11 @@ import {
   X,
   Lock,
   Mail,
-  UserCheck
+  UserCheck,
+  Clock
 } from "lucide-react";
 import { API_ENDPOINTS } from "@/lib/api";
+import ProfileChangeModal from "@/components/profile/ProfileChangeModal";
 
 interface UserAccount {
   id: number;
@@ -28,6 +30,8 @@ interface UserAccount {
   badgeNumber: string;
   enabled?: boolean;
   phoneNumber?: string;
+  profilePicture?: string;
+  profileReviewStatus?: string;
 }
 
 export default function AdminUsersView() {
@@ -38,6 +42,9 @@ export default function AdminUsersView() {
   const [isProvisionOpen, setIsProvisionOpen] = useState(false);
   const [notice, setNotice] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
+  const [pendingRequests, setPendingRequests] = useState<any[]>([]);
+  const [selectedRequestId, setSelectedRequestId] = useState<number | null>(null);
+  const [isProfileModalOpen, setIsProfileModalOpen] = useState(false);
 
   // Form State
   const [formName, setFormName] = useState("");
@@ -50,15 +57,29 @@ export default function AdminUsersView() {
 
   useEffect(() => {
     loadUsers();
+    const handleAccountCreated = () => {
+      loadUsers();
+    };
+    window.addEventListener("campusguard:user-created", handleAccountCreated);
+    return () => {
+      window.removeEventListener("campusguard:user-created", handleAccountCreated);
+    };
   }, []);
 
   const loadUsers = async () => {
     setIsLoading(true);
     try {
-      const res = await fetch(API_ENDPOINTS.auth.users);
-      if (res.ok) {
-        const data = await res.json();
+      const [resUsers, resReqs] = await Promise.all([
+        fetch(API_ENDPOINTS.auth.users),
+        fetch(API_ENDPOINTS.profileRequests.list("PENDING")).catch(() => null),
+      ]);
+      if (resUsers.ok) {
+        const data = await resUsers.json();
         setUsers(Array.isArray(data) ? data : []);
+      }
+      if (resReqs && resReqs.ok) {
+        const reqData = await resReqs.json();
+        setPendingRequests(Array.isArray(reqData) ? reqData : []);
       }
     } catch {
       // ignore
@@ -95,24 +116,31 @@ export default function AdminUsersView() {
 
   const handleProvisionUser = async (e: React.FormEvent) => {
     e.preventDefault();
+    const cleanEmail = formEmail.trim().toLowerCase();
+    if (!cleanEmail.endsWith("@campusguard.edu") || cleanEmail === "@campusguard.edu") {
+      showNotice("Email must be an institutional address ending with @campusguard.edu");
+      return;
+    }
     try {
       const res = await fetch(API_ENDPOINTS.auth.users, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          name: formName,
-          email: formEmail,
+          fullName: formName.trim(),
+          name: formName.trim(),
+          email: cleanEmail,
           password: formPassword,
           role: formRole,
           department: formDepartment,
           badgeNumber: formBadgeNumber,
           phoneNumber: formPhone,
           enabled: true,
+          status: "ACTIVE",
         }),
       });
 
       if (res.ok) {
-        showNotice(`Provisioned account ${formEmail} with role ${formRole}.`);
+        showNotice(`Provisioned account ${cleanEmail} with role ${formRole}.`);
         setIsProvisionOpen(false);
         setFormName("");
         setFormEmail("");
@@ -120,7 +148,7 @@ export default function AdminUsersView() {
         loadUsers();
       } else {
         const err = await res.json();
-        showNotice(`Provisioning notice: ${err.message || "Email may already exist"}`);
+        showNotice(`Provisioning notice: ${err.error || err.message || "Failed to create account"}`);
       }
     } catch {
       showNotice("Failed to provision account. Check backend connection.");
@@ -199,6 +227,20 @@ export default function AdminUsersView() {
         </div>
 
         <div className="flex flex-wrap items-center gap-2.5">
+          {pendingRequests.length > 0 && (
+            <button
+              type="button"
+              onClick={() => {
+                setSelectedRequestId(pendingRequests[0].id);
+                setIsProfileModalOpen(true);
+              }}
+              className="px-3.5 py-2 bg-amber-500 hover:bg-amber-600 text-white font-bold text-xs rounded-lg flex items-center gap-1.5 shadow-xs transition cursor-pointer"
+            >
+              <Clock className="w-3.5 h-3.5 animate-pulse" />
+              <span>Review Profile Updates ({pendingRequests.length})</span>
+            </button>
+          )}
+
           <button
             type="button"
             onClick={handleExportDirectory}
@@ -501,6 +543,24 @@ export default function AdminUsersView() {
           </div>
         </div>
       )}
+
+      {/* Profile Change Review Modal */}
+      <ProfileChangeModal
+        isOpen={isProfileModalOpen}
+        requestId={selectedRequestId}
+        onApproved={() => {
+          loadUsers();
+          showNotice("Student profile change approved.");
+        }}
+        onDenied={() => {
+          loadUsers();
+          showNotice("Student profile change denied and reverted.");
+        }}
+        onClose={() => {
+          setIsProfileModalOpen(false);
+          setSelectedRequestId(null);
+        }}
+      />
     </div>
   );
 }

@@ -30,11 +30,22 @@ public class User {
 
     private String status; // ACTIVE, SUSPENDED, PENDING
 
+    @Column(columnDefinition = "TEXT")
+    private String profilePicture;
+
+    private String previousFullName;
+
+    @Column(columnDefinition = "TEXT")
+    private String previousProfilePicture;
+
+    private String profileReviewStatus; // APPROVED, PENDING_APPROVAL, DENIED
+
     private LocalDateTime createdAt;
 
     public User() {
         this.createdAt = LocalDateTime.now();
         this.status = "ACTIVE";
+        this.profileReviewStatus = "APPROVED";
     }
 
     public User(String email, String password, String role) {
@@ -92,6 +103,14 @@ public class User {
         this.fullName = fullName;
     }
 
+    public String getName() {
+        return fullName;
+    }
+
+    public void setName(String name) {
+        this.fullName = name;
+    }
+
     public String getBadgeNumber() {
         return badgeNumber;
     }
@@ -122,6 +141,38 @@ public class User {
 
     public void setStatus(String status) {
         this.status = status;
+    }
+
+    public String getProfilePicture() {
+        return profilePicture;
+    }
+
+    public void setProfilePicture(String profilePicture) {
+        this.profilePicture = profilePicture;
+    }
+
+    public String getPreviousFullName() {
+        return previousFullName;
+    }
+
+    public void setPreviousFullName(String previousFullName) {
+        this.previousFullName = previousFullName;
+    }
+
+    public String getPreviousProfilePicture() {
+        return previousProfilePicture;
+    }
+
+    public void setPreviousProfilePicture(String previousProfilePicture) {
+        this.previousProfilePicture = previousProfilePicture;
+    }
+
+    public String getProfileReviewStatus() {
+        return profileReviewStatus != null ? profileReviewStatus : "APPROVED";
+    }
+
+    public void setProfileReviewStatus(String profileReviewStatus) {
+        this.profileReviewStatus = profileReviewStatus;
     }
 
     public LocalDateTime getCreatedAt() {

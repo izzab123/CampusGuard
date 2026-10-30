@@ -3,6 +3,7 @@ package com.campusguard.controller;
 import com.campusguard.dto.*;
 import com.campusguard.model.PasswordResetToken;
 import com.campusguard.model.User;
+import com.campusguard.repository.NotificationRepository;
 import com.campusguard.repository.PasswordResetTokenRepository;
 import com.campusguard.repository.UserRepository;
 import com.campusguard.service.EmailService;
@@ -37,16 +38,22 @@ public class AuthController {
     private final UserRepository userRepository;
     private final PasswordResetTokenRepository tokenRepository;
     private final EmailService emailService;
+    private final NotificationRepository notificationRepository;
+    private final com.campusguard.repository.ProfileChangeRequestRepository profileRequestRepository;
 
     @Value("${campusguard.frontend.url:http://localhost:3000}")
     private String frontendUrl;
 
     public AuthController(UserRepository userRepository,
                           PasswordResetTokenRepository tokenRepository,
-                          EmailService emailService) {
+                          EmailService emailService,
+                          NotificationRepository notificationRepository,
+                          com.campusguard.repository.ProfileChangeRequestRepository profileRequestRepository) {
         this.userRepository = userRepository;
         this.tokenRepository = tokenRepository;
         this.emailService = emailService;
+        this.notificationRepository = notificationRepository;
+        this.profileRequestRepository = profileRequestRepository;
     }
 
     /**
@@ -99,7 +106,9 @@ public class AuthController {
                 user.getFullName(),
                 user.getBadgeNumber(),
                 user.getDepartment(),
-                user.getId()
+                user.getId(),
+                user.getProfilePicture(),
+                user.getProfileReviewStatus()
         );
 
         return ResponseEntity.ok(response);
@@ -244,9 +253,13 @@ public class AuthController {
             map.put("email", u.getEmail());
             map.put("role", u.getRole());
             map.put("fullName", u.getFullName());
+            map.put("name", u.getFullName());
             map.put("badgeNumber", u.getBadgeNumber());
             map.put("department", u.getDepartment());
+            map.put("phoneNumber", u.getPhoneNumber());
             map.put("status", u.getStatus());
+            map.put("profilePicture", u.getProfilePicture());
+            map.put("profileReviewStatus", u.getProfileReviewStatus());
             map.put("createdAt", u.getCreatedAt());
             list.add(map);
         }
@@ -254,32 +267,43 @@ public class AuthController {
     }
 
     /**
-     * Admin provisions a new user
+     * Admin provisions a new user with required @campusguard.edu institutional address
      */
     @PostMapping("/users")
     public ResponseEntity<?> createUser(@RequestBody User newUser) {
         if (newUser.getEmail() == null || newUser.getEmail().isBlank()) {
-            return ResponseEntity.badRequest().body(Map.of("error", "Email is required"));
+            return ResponseEntity.badRequest().body(Map.of("error", "Email address is required"));
         }
-        if (userRepository.findByEmailIgnoreCase(newUser.getEmail().trim()).isPresent()) {
-            return ResponseEntity.badRequest().body(Map.of("error", "User with this email already exists"));
+        String cleanEmail = newUser.getEmail().trim().toLowerCase();
+        if (!cleanEmail.endsWith("@campusguard.edu") || cleanEmail.equals("@campusguard.edu")) {
+            return ResponseEntity.badRequest().body(Map.of("error", "A valid email address ending with @campusguard.edu is required"));
+        }
+        if (userRepository.findByEmailIgnoreCase(cleanEmail).isPresent()) {
+            return ResponseEntity.badRequest().body(Map.of("error", "An account with this email address already exists"));
         }
         if (newUser.getPassword() == null || newUser.getPassword().isBlank()) {
-            newUser.setPassword("12345678");
+            return ResponseEntity.badRequest().body(Map.of("error", "Password is required"));
         }
+        newUser.setEmail(cleanEmail);
         if (newUser.getStatus() == null || newUser.getStatus().isBlank()) {
             newUser.setStatus("ACTIVE");
         }
+        if (newUser.getProfileReviewStatus() == null || newUser.getProfileReviewStatus().isBlank()) {
+            newUser.setProfileReviewStatus("APPROVED");
+        }
         User saved = userRepository.save(newUser);
-        return ResponseEntity.status(HttpStatus.CREATED).body(Map.of(
-                "id", saved.getId(),
-                "email", saved.getEmail(),
-                "role", saved.getRole(),
-                "fullName", saved.getFullName() != null ? saved.getFullName() : "",
-                "badgeNumber", saved.getBadgeNumber() != null ? saved.getBadgeNumber() : "",
-                "department", saved.getDepartment() != null ? saved.getDepartment() : "",
-                "status", saved.getStatus()
-        ));
+        Map<String, Object> resp = new HashMap<>();
+        resp.put("id", saved.getId());
+        resp.put("email", saved.getEmail());
+        resp.put("role", saved.getRole());
+        resp.put("fullName", saved.getFullName() != null ? saved.getFullName() : "");
+        resp.put("name", saved.getFullName() != null ? saved.getFullName() : "");
+        resp.put("badgeNumber", saved.getBadgeNumber() != null ? saved.getBadgeNumber() : "");
+        resp.put("department", saved.getDepartment() != null ? saved.getDepartment() : "");
+        resp.put("phoneNumber", saved.getPhoneNumber() != null ? saved.getPhoneNumber() : "");
+        resp.put("status", saved.getStatus());
+        resp.put("profilePicture", saved.getProfilePicture());
+        return ResponseEntity.status(HttpStatus.CREATED).body(resp);
     }
 
     /**
@@ -296,9 +320,39 @@ public class AuthController {
     }
 
     /**
+     * Get user profile details by email
+     */
+    @GetMapping("/profile")
+    public ResponseEntity<?> getProfile(@RequestParam("email") String email) {
+        if (email == null || email.isBlank()) {
+            return ResponseEntity.badRequest().body(Map.of("error", "Email is required"));
+        }
+        return userRepository.findByEmailIgnoreCase(email.trim()).map(u -> {
+            Map<String, Object> resp = new HashMap<>();
+            resp.put("id", u.getId());
+            resp.put("email", u.getEmail());
+            resp.put("fullName", u.getFullName());
+            resp.put("name", u.getFullName());
+            resp.put("role", u.getRole());
+            resp.put("badgeNumber", u.getBadgeNumber() != null ? u.getBadgeNumber() : "");
+            resp.put("department", u.getDepartment() != null ? u.getDepartment() : "");
+            resp.put("phoneNumber", u.getPhoneNumber() != null ? u.getPhoneNumber() : "");
+            resp.put("profilePicture", u.getProfilePicture());
+            resp.put("profileReviewStatus", u.getProfileReviewStatus());
+            return ResponseEntity.ok(resp);
+        }).orElse(ResponseEntity.notFound().build());
+    }
+
+    /**
      * Update user profile details
+     * For students:
+     * - Department cannot be modified
+     * - Name & photo changes are applied to student view immediately
+     * - Notification is sent strictly and ONLY to Admin
+     * - ProfileChangeRequest record is created for Admin approval or denial
      */
     @PutMapping("/profile")
+    @Transactional
     public ResponseEntity<?> updateProfile(@RequestBody Map<String, String> body) {
         String email = body.get("email");
         if (email == null || email.isBlank()) {
@@ -306,14 +360,69 @@ public class AuthController {
         }
         return userRepository.findByEmailIgnoreCase(email.trim()).map(u -> {
             String nameVal = body.containsKey("fullName") ? body.get("fullName") : body.get("name");
-            if (nameVal != null && !nameVal.isBlank()) {
-                u.setFullName(nameVal);
+            String picVal = body.get("profilePicture");
+            String oldName = u.getFullName();
+            String oldPic = u.getProfilePicture();
+            boolean isStudent = "Student".equalsIgnoreCase(u.getRole());
+
+            if (isStudent) {
+                // Students CANNOT change department
+                // If previous values not stored yet, capture current ones for revert capability
+                if (u.getPreviousFullName() == null) {
+                    u.setPreviousFullName(oldName);
+                }
+                if (u.getPreviousProfilePicture() == null) {
+                    u.setPreviousProfilePicture(oldPic);
+                }
+
+                if (nameVal != null && !nameVal.isBlank()) {
+                    u.setFullName(nameVal.trim());
+                }
+                if (picVal != null) {
+                    u.setProfilePicture(picVal);
+                }
+                if (body.containsKey("phoneNumber")) {
+                    u.setPhoneNumber(body.get("phoneNumber"));
+                }
+                u.setProfileReviewStatus("PENDING_APPROVAL");
+                userRepository.save(u);
+
+                // Create ProfileChangeRequest record for Admin review
+                com.campusguard.model.ProfileChangeRequest req = new com.campusguard.model.ProfileChangeRequest(
+                        u.getId(),
+                        u.getEmail(),
+                        oldName != null ? oldName : u.getEmail(),
+                        u.getBadgeNumber(),
+                        oldName,
+                        u.getFullName(),
+                        oldPic,
+                        u.getProfilePicture()
+                );
+                com.campusguard.model.ProfileChangeRequest savedReq = profileRequestRepository.save(req);
+
+                // Send notification ONLY to Admin
+                com.campusguard.model.Notification notif = new com.campusguard.model.Notification(
+                        "Admin",
+                        null,
+                        "Student Profile Change Request: " + u.getFullName(),
+                        "Student " + (oldName != null ? oldName : u.getEmail()) + " (#" + (u.getBadgeNumber() != null ? u.getBadgeNumber() : "N/A") + ") requested profile updates (Name: '" + u.getFullName() + "'" + (picVal != null && !picVal.equals(oldPic) ? ", Photo updated" : "") + "). Pending administrative approval.",
+                        "PROFILE_UPDATE",
+                        "MEDIUM"
+                );
+                notif.setProfileRequestId(savedReq.getId());
+                notificationRepository.save(notif);
+            } else {
+                if (nameVal != null && !nameVal.isBlank()) {
+                    u.setFullName(nameVal.trim());
+                }
+                if (body.containsKey("department")) u.setDepartment(body.get("department"));
+                if (body.containsKey("badgeNumber")) u.setBadgeNumber(body.get("badgeNumber"));
+                if (body.containsKey("phoneNumber")) u.setPhoneNumber(body.get("phoneNumber"));
+                if (picVal != null) u.setProfilePicture(picVal);
+                userRepository.save(u);
             }
-            if (body.containsKey("department")) u.setDepartment(body.get("department"));
-            if (body.containsKey("badgeNumber")) u.setBadgeNumber(body.get("badgeNumber"));
-            if (body.containsKey("phoneNumber")) u.setPhoneNumber(body.get("phoneNumber"));
-            userRepository.save(u);
-            java.util.Map<String, Object> resp = new java.util.HashMap<>();
+
+            Map<String, Object> resp = new HashMap<>();
             resp.put("success", true);
             resp.put("email", u.getEmail());
             resp.put("fullName", u.getFullName());
@@ -321,6 +430,9 @@ public class AuthController {
             resp.put("department", u.getDepartment() != null ? u.getDepartment() : "");
             resp.put("badgeNumber", u.getBadgeNumber() != null ? u.getBadgeNumber() : "");
             resp.put("phoneNumber", u.getPhoneNumber() != null ? u.getPhoneNumber() : "");
+            resp.put("profilePicture", u.getProfilePicture());
+            resp.put("profileReviewStatus", u.getProfileReviewStatus());
+            resp.put("role", u.getRole());
             return ResponseEntity.ok(resp);
         }).orElse(ResponseEntity.notFound().build());
     }

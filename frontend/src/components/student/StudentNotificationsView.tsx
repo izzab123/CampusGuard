@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
+import Link from "next/link";
 import {
   Car,
   Wrench,
@@ -19,10 +20,11 @@ import {
   ExternalLink,
   ThumbsUp,
   FileText,
-  Bell
+  Bell,
+  UserCheck
 } from "lucide-react";
 import { API_ENDPOINTS } from "@/lib/api";
-import { getStoredAuthUser } from "@/lib/auth";
+import { getStoredAuthUser, saveAuthUser } from "@/lib/auth";
 import IncidentDetailsModal from "@/components/incidents/IncidentDetailsModal";
 import VehicleDetailsModal from "@/components/vehicles/VehicleDetailsModal";
 
@@ -36,6 +38,7 @@ interface NotificationItem {
   priority: string;
   incidentId?: number;
   vehicleRegistrationId?: number;
+  profileRequestId?: number;
   isRead: boolean;
   createdAt: string;
 }
@@ -49,8 +52,10 @@ export default function StudentNotificationsView() {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedVehicleId, setSelectedVehicleId] = useState<number | null>(null);
   const [isVehicleModalOpen, setIsVehicleModalOpen] = useState(false);
+  const [isRefreshing, setIsRefreshing] = useState(false);
 
-  const fetchNotifications = async () => {
+  const fetchNotifications = async (isManualClick = false) => {
+    if (isManualClick) setIsRefreshing(true);
     try {
       const user = getStoredAuthUser();
       const res = await fetch(API_ENDPOINTS.notifications.byRole("Student", user?.email || undefined));
@@ -61,8 +66,39 @@ export default function StudentNotificationsView() {
           isRead: Boolean(n.isRead ?? n.read ?? false),
         }));
         setNotifications(normalized);
+        if (isManualClick) {
+          setActionNotice(`Notification feed refreshed (${new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })}).`);
+          setTimeout(() => setActionNotice(null), 4000);
+        }
       }
-    } catch {}
+
+      if (user?.email) {
+        fetch(`${API_ENDPOINTS.auth.profile}?email=${encodeURIComponent(user.email)}`)
+          .then((r) => (r.ok ? r.json() : null))
+          .then((data) => {
+            if (data && (data.fullName !== user.fullName || data.profilePicture !== user.profilePicture || data.profileReviewStatus !== user.profileReviewStatus)) {
+              saveAuthUser({
+                ...user,
+                fullName: data.fullName || user.fullName,
+                name: data.fullName || user.name,
+                department: data.department || user.department,
+                profilePicture: data.profilePicture !== undefined ? data.profilePicture : user.profilePicture,
+                profileReviewStatus: data.profileReviewStatus || user.profileReviewStatus,
+              });
+            }
+          })
+          .catch(() => {});
+      }
+    } catch {
+      if (isManualClick) {
+        setActionNotice("Unable to refresh notification feed. Please check backend connection.");
+        setTimeout(() => setActionNotice(null), 4000);
+      }
+    } finally {
+      if (isManualClick) {
+        setTimeout(() => setIsRefreshing(false), 300);
+      }
+    }
   };
 
   useEffect(() => {
@@ -149,11 +185,12 @@ export default function StudentNotificationsView() {
 
         <button
           type="button"
-          onClick={fetchNotifications}
-          className="px-3.5 py-2 bg-white border border-slate-300 hover:bg-slate-50 text-slate-700 font-bold text-xs rounded-lg flex items-center gap-1.5 shadow-xs transition cursor-pointer self-start"
+          onClick={() => fetchNotifications(true)}
+          disabled={isRefreshing}
+          className="px-3.5 py-2 bg-white border border-slate-300 hover:bg-slate-50 text-slate-700 font-bold text-xs rounded-lg flex items-center gap-1.5 shadow-xs transition cursor-pointer disabled:opacity-60 self-start"
         >
-          <RotateCcw className="w-3.5 h-3.5 text-slate-500" />
-          <span>Refresh Feed</span>
+          <RotateCcw className={`w-3.5 h-3.5 text-slate-500 ${isRefreshing ? "animate-spin" : ""}`} />
+          <span>{isRefreshing ? "Refreshing..." : "Refresh Feed"}</span>
         </button>
       </div>
 
@@ -217,6 +254,11 @@ export default function StudentNotificationsView() {
                       #VEH-{item.vehicleRegistrationId}
                     </span>
                   )}
+                  {item.category === "PROFILE_UPDATE" && (
+                    <span className="px-2 py-0.5 rounded text-[10px] font-mono font-bold bg-blue-100 text-blue-800 border border-blue-300">
+                      #PROFILE-UPDATE
+                    </span>
+                  )}
                 </div>
                 <p className="text-xs text-slate-600 leading-relaxed max-w-3xl">
                   {item.message}
@@ -227,6 +269,16 @@ export default function StudentNotificationsView() {
               </div>
 
               <div className="flex items-center gap-2 self-start shrink-0 flex-wrap">
+                {item.category === "PROFILE_UPDATE" && (
+                  <Link
+                    href="/dashboard/student/profile"
+                    className="px-3 py-1.5 bg-[#0a2f77] hover:bg-[#082660] text-white font-bold text-xs rounded-lg transition cursor-pointer flex items-center gap-1.5 shadow-2xs"
+                  >
+                    <UserCheck className="w-3.5 h-3.5" />
+                    <span>View My Profile</span>
+                  </Link>
+                )}
+
                 {item.incidentId && (
                   <button
                     type="button"

@@ -22,7 +22,8 @@ import {
   Sparkles,
   Users,
   CheckCheck,
-  Car
+  Car,
+  RotateCcw
 } from "lucide-react";
 import { getStoredAuthUser, performLogout, AuthUser } from "@/lib/auth";
 import { API_ENDPOINTS } from "@/lib/api";
@@ -57,6 +58,7 @@ export default function SupervisorNotificationsPage() {
   const [activeFilter, setActiveFilter] = useState<"ALL" | "UNREAD" | "ABSENCES">("ALL");
   const [notice, setNotice] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
+  const [isRefreshing, setIsRefreshing] = useState(false);
   const [isScanning, setIsScanning] = useState(false);
   const [selectedIncidentId, setSelectedIncidentId] = useState<number | null>(null);
   const [isIncidentModalOpen, setIsIncidentModalOpen] = useState(false);
@@ -99,19 +101,30 @@ export default function SupervisorNotificationsPage() {
     };
   };
 
-  const loadNotifications = async () => {
-    setIsLoading(true);
+  const loadNotifications = async (isManualClick = false) => {
+    if (isManualClick) setIsRefreshing(true);
+    else setIsLoading(true);
     try {
-      const res = await fetch(API_ENDPOINTS.notifications.list("Shift Supervisor"));
+      const stored = user || getStoredAuthUser();
+      const res = await fetch(API_ENDPOINTS.notifications.byRole("Shift Supervisor", stored?.email || undefined));
       if (res.ok) {
         const data = await res.json();
         const normalized = (Array.isArray(data) ? data : []).map(normalizeNotification);
         setNotifications(normalized);
+        if (isManualClick) {
+          showNotification(`Supervisor feed refreshed (${new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })}).`);
+        }
       }
     } catch {
-      // ignore
+      if (isManualClick) {
+        showNotification("Failed to refresh supervisor notifications. Check server connection.");
+      }
     } finally {
-      setIsLoading(false);
+      if (isManualClick) {
+        setTimeout(() => setIsRefreshing(false), 300);
+      } else {
+        setIsLoading(false);
+      }
     }
   };
 
@@ -396,6 +409,17 @@ export default function SupervisorNotificationsPage() {
             </div>
 
             <div className="flex flex-wrap items-center gap-2.5">
+              <button
+                type="button"
+                onClick={() => loadNotifications(true)}
+                disabled={isRefreshing || isLoading}
+                className="px-3.5 py-2 bg-white border border-slate-300 hover:bg-slate-50 text-slate-800 font-bold text-xs rounded-xl flex items-center gap-1.5 shadow-2xs transition cursor-pointer disabled:opacity-50"
+                title="Refresh supervisor notification feed"
+              >
+                <RotateCcw className={`w-3.5 h-3.5 text-slate-600 ${isRefreshing ? "animate-spin" : ""}`} />
+                <span>{isRefreshing ? "Refreshing..." : "Refresh Feed"}</span>
+              </button>
+
               <button
                 type="button"
                 onClick={handleRunAttendanceScan}

@@ -1,22 +1,23 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import Image from "next/image";
 import {
   Edit3,
-  Download,
   LogOut,
   ShieldCheck,
   Building,
   Mail,
-  Phone,
-  Home,
   Car,
-  CheckCircle2,
   Save,
   Key,
-  Smartphone,
-  PhoneCall
+  Camera,
+  Maximize2,
+  X,
+  UserCheck,
+  Clock,
+  CheckCircle2,
+  Lock
 } from "lucide-react";
 import { performLogout, getStoredAuthUser, saveAuthUser, AuthUser } from "@/lib/auth";
 import { API_ENDPOINTS } from "@/lib/api";
@@ -27,14 +28,44 @@ export default function StudentProfileView() {
   const [actionNotice, setActionNotice] = useState<string | null>(null);
   const [editing, setEditing] = useState(false);
   const [fullName, setFullName] = useState("");
-  const [department, setDepartment] = useState("");
+  const [profilePicture, setProfilePicture] = useState<string | null>(null);
+  const [isPhotoModalOpen, setIsPhotoModalOpen] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const fetchProfile = async (email: string, stored: AuthUser) => {
+    try {
+      const res = await fetch(`${API_ENDPOINTS.auth.profile}?email=${encodeURIComponent(email)}`);
+      if (res.ok) {
+        const data = await res.json();
+        if (data) {
+          const updated: AuthUser = {
+            ...stored,
+            fullName: data.fullName || stored.fullName,
+            name: data.fullName || stored.name,
+            department: data.department || stored.department,
+            badgeNumber: data.badgeNumber || stored.badgeNumber,
+            profilePicture: data.profilePicture !== undefined ? data.profilePicture : stored.profilePicture,
+            profileReviewStatus: data.profileReviewStatus || stored.profileReviewStatus,
+          };
+          saveAuthUser(updated);
+          setUser(updated);
+          setFullName(updated.fullName || "");
+          setProfilePicture(updated.profilePicture || null);
+        }
+      }
+    } catch {}
+  };
 
   useEffect(() => {
     const stored = getStoredAuthUser();
     setUser(stored);
     if (stored) {
       setFullName(stored.fullName || "");
-      setDepartment(stored.department || "");
+      setProfilePicture(stored.profilePicture || null);
+      if (stored.email) {
+        fetchProfile(stored.email, stored);
+      }
       fetch(API_ENDPOINTS.parking.my(stored.fullName))
         .then((res) => (res.ok ? res.json() : null))
         .then((data) => {
@@ -42,43 +73,100 @@ export default function StudentProfileView() {
         })
         .catch(() => {});
     }
+
+    const handleAuthChange = (e: any) => {
+      if (e.detail) {
+        setUser(e.detail);
+        setFullName(e.detail.fullName || "");
+        setProfilePicture(e.detail.profilePicture || null);
+      }
+    };
+
+    window.addEventListener("campusguard_auth_change", handleAuthChange);
+    return () => {
+      window.removeEventListener("campusguard_auth_change", handleAuthChange);
+    };
   }, []);
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (!file.type.startsWith("image/")) {
+      handleAction("Please select an image file (PNG, JPG, WEBP).");
+      return;
+    }
+
+    // Size limit: 2MB for base64 storage
+    if (file.size > 2 * 1024 * 1024) {
+      handleAction("Image size must be smaller than 2MB.");
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      const dataUrl = event.target?.result as string;
+      setProfilePicture(dataUrl);
+      handleAction("Photo loaded. Click 'Save Changes' to apply.");
+    };
+    reader.readAsDataURL(file);
+  };
 
   const handleSaveProfile = async () => {
     if (!user) return;
+    if (!fullName.trim()) {
+      handleAction("Full name cannot be blank.");
+      return;
+    }
+
+    setIsSaving(true);
     try {
       const res = await fetch(API_ENDPOINTS.auth.profile, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           email: user.email,
-          fullName,
-          department,
+          fullName: fullName.trim(),
+          profilePicture: profilePicture || "",
         }),
       });
 
       if (res.ok) {
+        const data = await res.json();
         const updatedUser: AuthUser = {
           ...user,
-          fullName,
-          department,
+          fullName: data.fullName || fullName.trim(),
+          name: data.fullName || fullName.trim(),
+          department: data.department || user.department,
+          profilePicture: data.profilePicture !== undefined ? data.profilePicture : profilePicture,
+          profileReviewStatus: data.profileReviewStatus || "PENDING_APPROVAL",
         };
         saveAuthUser(updatedUser);
         setUser(updatedUser);
         setEditing(false);
-        handleAction("Profile updated successfully in institutional directory.");
+        handleAction("Profile updated on your dashboard. An approval request has been sent to the administrator.");
       } else {
-        handleAction("Failed to update profile.");
+        handleAction("Failed to update profile. Please check server connection.");
       }
     } catch {
-      handleAction("Profile update cached locally.");
+      handleAction("Network error. Profile changes cached locally.");
+    } finally {
+      setIsSaving(false);
     }
+  };
+
+  const handleCancelEditing = () => {
+    setEditing(false);
+    setFullName(user?.fullName || "");
+    setProfilePicture(user?.profilePicture || null);
   };
 
   const handleAction = (msg: string) => {
     setActionNotice(msg);
-    setTimeout(() => setActionNotice(null), 4000);
+    setTimeout(() => setActionNotice(null), 5000);
   };
+
+  const isPendingApproval = user?.profileReviewStatus === "PENDING_APPROVAL";
 
   return (
     <div className="space-y-5">
@@ -99,10 +187,19 @@ export default function StudentProfileView() {
       {/* TOP HEADER */}
       <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
         <div>
-          <div className="text-[11px] font-bold tracking-wider text-slate-500 uppercase flex items-center gap-1.5">
+          <div className="text-[11px] font-bold tracking-wider text-slate-500 uppercase flex items-center gap-1.5 flex-wrap">
             <span>CAMPUS IDENTITY &amp; PHYSICAL ACCESS</span>
             <span className="text-slate-300">•</span>
             <span className="text-blue-700">Active Session</span>
+            {isPendingApproval && (
+              <>
+                <span className="text-slate-300">•</span>
+                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-100 text-amber-800 border border-amber-200">
+                  <Clock className="w-3 h-3 text-amber-600" />
+                  <span>Pending Admin Approval</span>
+                </span>
+              </>
+            )}
           </div>
           <h1 className="text-2xl sm:text-[26px] font-extrabold text-slate-900 tracking-tight mt-1">
             Student Identity &amp; Access Profile
@@ -114,14 +211,24 @@ export default function StudentProfileView() {
 
         <div className="flex items-center gap-2.5 shrink-0 flex-wrap">
           {editing ? (
-            <button
-              type="button"
-              onClick={handleSaveProfile}
-              className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs rounded-lg flex items-center gap-1.5 shadow-xs transition cursor-pointer"
-            >
-              <Save className="w-3.5 h-3.5" />
-              <span>Save Changes</span>
-            </button>
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={handleCancelEditing}
+                className="px-3.5 py-2 bg-white border border-slate-300 hover:bg-slate-50 text-slate-700 font-bold text-xs rounded-lg transition cursor-pointer"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                disabled={isSaving}
+                onClick={handleSaveProfile}
+                className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs rounded-lg flex items-center gap-1.5 shadow-xs transition cursor-pointer disabled:opacity-50"
+              >
+                <Save className="w-3.5 h-3.5" />
+                <span>{isSaving ? "Saving..." : "Save Changes"}</span>
+              </button>
+            </div>
           ) : (
             <button
               type="button"
@@ -165,28 +272,75 @@ export default function StudentProfileView() {
             <div className="p-6 space-y-6">
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                 <div className="flex items-center gap-4">
-                  <div className="relative w-16 h-16 rounded-2xl overflow-hidden ring-2 ring-blue-700/20 bg-slate-100 shrink-0">
-                    <Image
-                      src="/student-alex.jpg"
-                      alt="Student"
-                      width={64}
-                      height={64}
-                      className="w-full h-full object-cover"
-                      onError={(e) => {
-                        (e.target as HTMLElement).style.display = "none";
-                      }}
-                    />
-                    <div className="absolute bottom-0 right-0 w-3.5 h-3.5 bg-emerald-500 rounded-full border-2 border-white"></div>
+                  {/* Photo Container with Click-to-View and Edit Upload */}
+                  <div className="flex flex-col items-center gap-1.5">
+                    <button
+                      type="button"
+                      onClick={() => setIsPhotoModalOpen(true)}
+                      title="Click to view full photo"
+                      className="relative w-20 h-20 rounded-2xl overflow-hidden ring-2 ring-blue-700/20 bg-slate-100 shrink-0 group cursor-pointer focus:outline-none focus:ring-2 focus:ring-blue-600 transition hover:shadow-md"
+                    >
+                      {profilePicture ? (
+                        <img
+                          src={profilePicture}
+                          alt={user?.fullName || "Student"}
+                          className="w-full h-full object-cover group-hover:scale-105 transition duration-200"
+                        />
+                      ) : (
+                        <Image
+                          src="/student-alex.jpg"
+                          alt="Student"
+                          width={80}
+                          height={80}
+                          className="w-full h-full object-cover group-hover:scale-105 transition duration-200"
+                          onError={(e) => {
+                            (e.target as HTMLElement).style.display = "none";
+                          }}
+                        />
+                      )}
+                      {/* Hover Overlay */}
+                      <div className="absolute inset-0 bg-slate-900/40 opacity-0 group-hover:opacity-100 transition flex items-center justify-center text-white">
+                        <Maximize2 className="w-5 h-5 drop-shadow-md" />
+                      </div>
+                      <div className="absolute bottom-1 right-1 w-3.5 h-3.5 bg-emerald-500 rounded-full border-2 border-white"></div>
+                    </button>
+
+                    {/* Change Photo Button when in Edit Mode */}
+                    {editing && (
+                      <div>
+                        <button
+                          type="button"
+                          onClick={() => fileInputRef.current?.click()}
+                          className="px-2.5 py-1 bg-blue-50 hover:bg-blue-100 text-blue-700 border border-blue-200 text-[11px] font-bold rounded-lg flex items-center gap-1 shadow-2xs transition cursor-pointer"
+                        >
+                          <Camera className="w-3.5 h-3.5" />
+                          <span>Change Photo</span>
+                        </button>
+                        <input
+                          ref={fileInputRef}
+                          type="file"
+                          accept="image/*"
+                          onChange={handleFileChange}
+                          className="hidden"
+                        />
+                      </div>
+                    )}
                   </div>
 
                   <div className="space-y-1">
                     {editing ? (
-                      <input
-                        type="text"
-                        value={fullName}
-                        onChange={(e) => setFullName(e.target.value)}
-                        className="text-lg font-bold border border-slate-300 rounded px-2 py-0.5"
-                      />
+                      <div>
+                        <label className="text-[10px] font-bold text-slate-500 uppercase block mb-0.5">
+                          Full Name
+                        </label>
+                        <input
+                          type="text"
+                          value={fullName}
+                          onChange={(e) => setFullName(e.target.value)}
+                          placeholder="Your full name"
+                          className="text-lg font-bold border border-slate-300 rounded px-2.5 py-1 focus:outline-none focus:ring-1 focus:ring-blue-600 bg-white"
+                        />
+                      </div>
                     ) : (
                       <h2 className="text-xl font-extrabold text-slate-900 leading-none">
                         {user?.fullName || "Alex Morgan"}
@@ -208,31 +362,41 @@ export default function StudentProfileView() {
                     <span className="w-1.5 h-1.5 rounded-full bg-emerald-600"></span>
                     ENROLLED • ACTIVE
                   </span>
+                  {isPendingApproval && (
+                    <div className="text-[11px] font-semibold text-amber-700 flex items-center gap-1">
+                      <Clock className="w-3 h-3" />
+                      <span>Approval Pending</span>
+                    </div>
+                  )}
                 </div>
               </div>
 
               {/* Attributes Grid */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5 pt-4 border-t border-slate-100 text-xs">
-                <div className="p-3 bg-slate-50 rounded-xl border border-slate-100 space-y-0.5">
-                  <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400 flex items-center gap-1.5">
-                    <Building className="w-3.5 h-3.5 text-blue-700" />
-                    <span>Department</span>
-                  </div>
-                  {editing ? (
-                    <input
-                      type="text"
-                      value={department}
-                      onChange={(e) => setDepartment(e.target.value)}
-                      className="w-full text-xs font-bold border border-slate-300 rounded px-2 py-1 mt-1"
-                    />
-                  ) : (
-                    <div className="font-bold text-slate-900">
-                      {user?.department || "Dept. of Computer Science & Eng."}
+                {/* Department: READ-ONLY FOR STUDENTS */}
+                <div className="p-3 bg-slate-50 rounded-xl border border-slate-100 space-y-1">
+                  <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400 flex items-center justify-between">
+                    <div className="flex items-center gap-1.5">
+                      <Building className="w-3.5 h-3.5 text-blue-700" />
+                      <span>Department</span>
                     </div>
+                    {editing && (
+                      <span className="text-[9px] font-bold text-slate-400 bg-slate-200/80 px-1.5 py-0.5 rounded flex items-center gap-0.5">
+                        <Lock className="w-2.5 h-2.5" /> Non-editable
+                      </span>
+                    )}
+                  </div>
+                  <div className="font-bold text-slate-900">
+                    {user?.department || "Dept. of Computer Science & Eng."}
+                  </div>
+                  {editing && (
+                    <p className="text-[10px] text-slate-400">
+                      Assigned by Institutional Registry. Students cannot alter departments.
+                    </p>
                   )}
                 </div>
 
-                <div className="p-3 bg-slate-50 rounded-xl border border-slate-100 space-y-0.5">
+                <div className="p-3 bg-slate-50 rounded-xl border border-slate-100 space-y-1">
                   <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400 flex items-center gap-1.5">
                     <Mail className="w-3.5 h-3.5 text-blue-700" />
                     <span>Campus Email</span>
@@ -240,6 +404,11 @@ export default function StudentProfileView() {
                   <div className="font-bold font-mono text-blue-700">
                     {user?.email || "student@campusguard.edu"}
                   </div>
+                  {editing && (
+                    <p className="text-[10px] text-slate-400">
+                      Linked to SSO institutional directory.
+                    </p>
+                  )}
                 </div>
               </div>
             </div>
@@ -310,6 +479,75 @@ export default function StudentProfileView() {
           </div>
         </div>
       </div>
+
+      {/* FULL PHOTO VIEW MODAL (LIGHTBOX) */}
+      {isPhotoModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/70 backdrop-blur-xs animate-in fade-in duration-200">
+          <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full overflow-hidden border border-slate-200 flex flex-col">
+            <div className="px-5 py-3.5 bg-slate-50 border-b border-slate-200 flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <UserCheck className="w-4 h-4 text-blue-700" />
+                <h3 className="text-xs font-bold text-slate-900">Student Profile Photo</h3>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsPhotoModalOpen(false)}
+                className="w-8 h-8 rounded-lg flex items-center justify-center text-slate-400 hover:text-slate-700 hover:bg-slate-200/60 transition cursor-pointer"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <div className="p-6 flex flex-col items-center gap-4 bg-slate-50/50">
+              <div className="w-64 h-64 rounded-2xl overflow-hidden ring-4 ring-white shadow-xl bg-slate-100 flex items-center justify-center">
+                {profilePicture ? (
+                  <img
+                    src={profilePicture}
+                    alt={fullName || "Student"}
+                    className="w-full h-full object-cover"
+                  />
+                ) : (
+                  <Image
+                    src="/student-alex.jpg"
+                    alt="Student"
+                    width={256}
+                    height={256}
+                    className="w-full h-full object-cover"
+                  />
+                )}
+              </div>
+              <div className="text-center">
+                <h4 className="text-base font-extrabold text-slate-900">{fullName || user?.fullName || "Student"}</h4>
+                <p className="text-xs text-blue-800 font-mono font-bold mt-0.5">{user?.badgeNumber || "#STU-88201"}</p>
+                <p className="text-[11px] text-slate-500">{user?.department || "Dept. of Computer Science & Eng."}</p>
+              </div>
+            </div>
+
+            <div className="px-5 py-3 bg-white border-t border-slate-200 flex items-center justify-between">
+              {editing && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setIsPhotoModalOpen(false);
+                    fileInputRef.current?.click();
+                  }}
+                  className="px-3 py-1.5 bg-blue-50 hover:bg-blue-100 text-blue-700 font-bold text-xs rounded-lg transition cursor-pointer flex items-center gap-1.5"
+                >
+                  <Camera className="w-3.5 h-3.5" />
+                  <span>Choose Different Photo</span>
+                </button>
+              )}
+              <button
+                type="button"
+                onClick={() => setIsPhotoModalOpen(false)}
+                className="ml-auto px-4 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs rounded-lg transition cursor-pointer"
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
