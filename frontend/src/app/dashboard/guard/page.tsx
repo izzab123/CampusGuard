@@ -1,4 +1,5 @@
 "use client";
+import TopProfileBadge from "@/components/profile/TopProfileBadge";
 
 import React, { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
@@ -62,8 +63,10 @@ export default function SecurityGuardDashboard() {
   const [upcomingDuties, setUpcomingDuties] = useState<DutyRosterShift[]>([]);
   const [isLiveSyncing, setIsLiveSyncing] = useState<boolean>(false);
   const [guardNotice, setGuardNotice] = useState<string | null>(null);
+  const [isRefreshing, setIsRefreshing] = useState(false);
 
-  const fetchGuardTelemetry = useCallback(async () => {
+  const fetchGuardTelemetry = useCallback(async (isManual = false) => {
+    if (isManual) setIsRefreshing(true);
     const stored = getStoredAuthUser();
     try {
       // 1. Shifts Log
@@ -118,6 +121,9 @@ export default function SecurityGuardDashboard() {
         }
       }
     } catch {}
+    finally {
+      setIsRefreshing(false);
+    }
   }, []);
 
   useEffect(() => {
@@ -228,33 +234,32 @@ export default function SecurityGuardDashboard() {
               <span>Online • Roster Live</span>
             </div>
 
+            <button
+              type="button"
+              onClick={() => {
+                fetchGuardTelemetry(true);
+                setGuardNotice(`Guard telemetry refreshed (${new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })}).`);
+                setTimeout(() => setGuardNotice(null), 3500);
+              }}
+              disabled={isRefreshing}
+              title="Refresh Telemetry"
+              className="p-2 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 transition flex items-center justify-center cursor-pointer disabled:opacity-60"
+            >
+              <RotateCcw className={`w-4 h-4 ${isRefreshing ? "animate-spin text-blue-700" : ""}`} />
+            </button>
+
             <Link href="/dashboard/guard/notifications" className="relative cursor-pointer">
               <div className="w-9 h-9 rounded-full bg-slate-100 hover:bg-slate-200 flex items-center justify-center text-slate-600 transition">
                 <Bell className="w-4 h-4" />
               </div>
             </Link>
 
-            <div className="flex items-center gap-2.5 pl-2 border-l border-slate-200">
-              <div className="w-9 h-9 rounded-full bg-[#0a2f77] text-white flex items-center justify-center font-bold text-xs shadow-xs">
-                {officerName.slice(0, 2).toUpperCase()}
-              </div>
-              <div className="hidden lg:flex flex-col text-left">
-                <span className="text-xs font-bold text-slate-900 leading-tight">
-                  {officerName}
-                </span>
-                <span className="text-[11px] text-slate-500 leading-tight">
-                  {badgeNum}
-                </span>
-              </div>
-              <button
-                type="button"
-                onClick={() => performLogout()}
-                title="Log out"
-                className="ml-1 p-2 rounded-lg text-slate-400 hover:text-red-600 transition cursor-pointer"
-              >
-                <LogOut className="w-4 h-4" />
-              </button>
-            </div>
+            <TopProfileBadge
+              profileUrl="/dashboard/guard/profile"
+              defaultFallbackPhoto="/officer-vance.jpg"
+              defaultName="Officer Marcus Vance"
+              defaultBadge="Shield #4082"
+            />
           </div>
         </div>
       </header>

@@ -66,7 +66,7 @@ export default function AdminUsersView() {
     };
   }, []);
 
-  const loadUsers = async () => {
+  const loadUsers = async (isManual = false) => {
     setIsLoading(true);
     try {
       const [resUsers, resReqs] = await Promise.all([
@@ -81,8 +81,13 @@ export default function AdminUsersView() {
         const reqData = await resReqs.json();
         setPendingRequests(Array.isArray(reqData) ? reqData : []);
       }
+      if (isManual) {
+        showNotice(`User directory refreshed (${new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })}).`);
+      }
     } catch {
-      // ignore
+      if (isManual) {
+        showNotice("Failed to refresh user directory.");
+      }
     } finally {
       setIsLoading(false);
     }
@@ -240,6 +245,16 @@ export default function AdminUsersView() {
               <span>Review Profile Updates ({pendingRequests.length})</span>
             </button>
           )}
+
+          <button
+            type="button"
+            onClick={() => loadUsers(true)}
+            disabled={isLoading}
+            className="px-3.5 py-2 bg-white border border-slate-300 hover:bg-slate-50 text-slate-700 font-bold text-xs rounded-lg flex items-center gap-1.5 shadow-xs transition cursor-pointer disabled:opacity-60"
+          >
+            <RotateCcw className={`w-3.5 h-3.5 text-slate-500 ${isLoading ? "animate-spin" : ""}`} />
+            <span>{isLoading ? "Refreshing..." : "Refresh"}</span>
+          </button>
 
           <button
             type="button"
@@ -550,11 +565,11 @@ export default function AdminUsersView() {
         requestId={selectedRequestId}
         onApproved={() => {
           loadUsers();
-          showNotice("Student profile change approved.");
+          showNotice("Profile change approved.");
         }}
         onDenied={() => {
           loadUsers();
-          showNotice("Student profile change denied and reverted.");
+          showNotice("Profile change denied and reverted.");
         }}
         onClose={() => {
           setIsProfileModalOpen(false);

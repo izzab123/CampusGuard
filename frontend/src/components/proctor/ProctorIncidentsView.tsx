@@ -50,15 +50,28 @@ export default function ProctorIncidentsView() {
   const [caseSeverity, setCaseSeverity] = useState("HIGH");
   const [caseDescription, setCaseDescription] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isRefreshing, setIsRefreshing] = useState(false);
 
-  const fetchIncidents = async () => {
+  const fetchIncidents = async (isManual = false) => {
+    if (isManual) setIsRefreshing(true);
     try {
       const res = await fetch(API_ENDPOINTS.incidents.base);
       if (res.ok) {
         const data = await res.json();
         setIncidents(data);
+        if (isManual) {
+          handleAction(`Incidents roster refreshed (${new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })}).`);
+        }
       }
-    } catch {}
+    } catch {
+      if (isManual) {
+        handleAction("Failed to refresh incidents.");
+      }
+    } finally {
+      if (isManual) {
+        setTimeout(() => setIsRefreshing(false), 300);
+      }
+    }
   };
 
   useEffect(() => {
@@ -215,11 +228,12 @@ export default function ProctorIncidentsView() {
           </button>
           <button
             type="button"
-            onClick={fetchIncidents}
-            className="px-3.5 py-2 bg-white border border-slate-300 hover:bg-slate-50 text-slate-700 font-bold text-xs rounded-lg flex items-center gap-1.5 shadow-xs transition cursor-pointer self-start"
+            onClick={() => fetchIncidents(true)}
+            disabled={isRefreshing}
+            className="px-3.5 py-2 bg-white border border-slate-300 hover:bg-slate-50 text-slate-700 font-bold text-xs rounded-lg flex items-center gap-1.5 shadow-xs transition cursor-pointer self-start disabled:opacity-60"
           >
-            <RotateCcw className="w-3.5 h-3.5 text-slate-500" />
-            <span>Refresh Incidents</span>
+            <RotateCcw className={`w-3.5 h-3.5 text-slate-500 ${isRefreshing ? "animate-spin" : ""}`} />
+            <span>{isRefreshing ? "Refreshing..." : "Refresh Incidents"}</span>
           </button>
         </div>
       </div>

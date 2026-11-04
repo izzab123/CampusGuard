@@ -1,4 +1,5 @@
 "use client";
+import TopProfileBadge from "@/components/profile/TopProfileBadge";
 
 import React, { useState, useEffect, useCallback, useRef } from "react";
 import Link from "next/link";
@@ -132,6 +133,9 @@ export default function ViewMyDutyPage() {
           ) {
             setLiveNotice("Supervisor updated your duty roster! Refreshed in real time.");
             setTimeout(() => setLiveNotice(null), 5000);
+          } else if (isManual) {
+            setLiveNotice(`Duty roster refreshed (${new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })}).`);
+            setTimeout(() => setLiveNotice(null), 3500);
           }
           prevUpdatedRef.current = currentTimestamp;
         }
@@ -354,27 +358,12 @@ export default function ViewMyDutyPage() {
               </div>
             </Link>
 
-            <div className="flex items-center gap-2.5 pl-2 border-l border-slate-200">
-              <div className="w-9 h-9 rounded-full bg-[#0a2f77] text-white flex items-center justify-center font-bold text-xs shadow-xs">
-                {officerName.slice(0, 2).toUpperCase()}
-              </div>
-              <div className="hidden lg:flex flex-col text-left">
-                <span className="text-xs font-bold text-slate-900 leading-tight">
-                  {officerName}
-                </span>
-                <span className="text-[11px] text-slate-500 leading-tight">
-                  {badgeNum}
-                </span>
-              </div>
-              <button
-                type="button"
-                onClick={() => performLogout()}
-                title="Log out"
-                className="ml-1 p-2 rounded-lg text-slate-400 hover:text-red-600 hover:bg-red-50 transition cursor-pointer"
-              >
-                <LogOut className="w-4 h-4" />
-              </button>
-            </div>
+            <TopProfileBadge
+              profileUrl="/dashboard/guard/profile"
+              defaultFallbackPhoto="/officer-vance.jpg"
+              defaultName="Officer Marcus Vance"
+              defaultBadge="Shield #4082"
+            />
           </div>
         </div>
       </header>
@@ -485,10 +474,11 @@ export default function ViewMyDutyPage() {
               <button
                 type="button"
                 onClick={() => fetchRoster(true)}
-                className="px-3.5 py-2 bg-white border border-slate-300 hover:bg-slate-50 text-slate-700 font-bold text-xs rounded-xl flex items-center gap-1.5 shadow-2xs transition cursor-pointer"
+                disabled={isRefreshing}
+                className="px-3.5 py-2 bg-white border border-slate-300 hover:bg-slate-50 text-slate-700 font-bold text-xs rounded-xl flex items-center gap-1.5 shadow-2xs transition cursor-pointer disabled:opacity-60"
               >
                 <RotateCcw className={`w-3.5 h-3.5 ${isRefreshing ? "animate-spin text-blue-700" : ""}`} />
-                <span>Refresh Schedule</span>
+                <span>{isRefreshing ? "Refreshing..." : "Refresh Schedule"}</span>
               </button>
 
               <Link

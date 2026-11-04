@@ -1,4 +1,5 @@
 "use client";
+import TopProfileBadge from "@/components/profile/TopProfileBadge";
 
 import React, { useState, useEffect } from "react";
 import Link from "next/link";
@@ -69,7 +70,7 @@ export default function SupervisorAttendancePage() {
     loadData();
   }, []);
 
-  const loadData = async () => {
+  const loadData = async (isManual = false) => {
     setIsLoading(true);
     try {
       const [noShowsRes, recordsRes, configRes] = await Promise.all([
@@ -90,8 +91,15 @@ export default function SupervisorAttendancePage() {
         const cfg = await configRes.json();
         if (cfg.gracePeriodMinutes) setGracePeriod(cfg.gracePeriodMinutes);
       }
+      if (isManual) {
+        setAuditNotice(`Attendance data refreshed (${new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })}).`);
+        setTimeout(() => setAuditNotice(null), 3500);
+      }
     } catch {
-      // ignore
+      if (isManual) {
+        setAuditNotice("Failed to refresh attendance data.");
+        setTimeout(() => setAuditNotice(null), 3500);
+      }
     } finally {
       setIsLoading(false);
     }
@@ -248,28 +256,13 @@ export default function SupervisorAttendancePage() {
               </div>
             </Link>
 
-            <div className="flex items-center gap-2 pl-2 border-l border-slate-200">
-              <div className="w-8 h-8 rounded-full bg-slate-100 border border-slate-200 flex items-center justify-center font-bold text-xs text-slate-700">
-                {user?.name ? user.name[0] : "S"}
-              </div>
-              <div className="hidden sm:flex flex-col text-left">
-                <span className="text-xs font-bold text-slate-900 leading-none">
-                  {user?.name || "Shift Supervisor"}
-                </span>
-                <span className="text-[10px] text-slate-500 font-mono mt-0.5">
-                  #{user?.badgeNumber || "SS-104"}
-                </span>
-              </div>
-            </div>
-
-            <button
-              type="button"
-              onClick={performLogout}
-              className="p-1.5 text-slate-400 hover:text-slate-700 hover:bg-slate-50 rounded-lg transition"
-              title="Logout"
-            >
-              <LogOut className="w-4 h-4" />
-            </button>
+            <TopProfileBadge
+              profileUrl="/dashboard/supervisor/profile"
+              defaultFallbackPhoto="/supervisor-elena.jpg"
+              defaultName="Supervisor Elena Rostova"
+              defaultBadge="SS-104"
+              accentBg="bg-[#1a44c2]"
+            />
           </div>
         </div>
       </header>
@@ -304,12 +297,12 @@ export default function SupervisorAttendancePage() {
 
             <button
               type="button"
-              onClick={loadData}
+              onClick={() => loadData(true)}
               disabled={isLoading}
-              className="flex items-center gap-1.5 px-3 py-2 bg-slate-100 hover:bg-slate-200 rounded-xl text-xs font-semibold text-slate-700 border border-slate-200 transition cursor-pointer"
+              className="flex items-center gap-1.5 px-3 py-2 bg-slate-100 hover:bg-slate-200 rounded-xl text-xs font-semibold text-slate-700 border border-slate-200 transition cursor-pointer disabled:opacity-60"
             >
               <RotateCcw className={`w-3.5 h-3.5 text-slate-500 ${isLoading ? "animate-spin" : ""}`} />
-              <span>Refresh</span>
+              <span>{isLoading ? "Refreshing..." : "Refresh"}</span>
             </button>
           </div>
         </div>

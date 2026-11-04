@@ -43,15 +43,28 @@ export default function ProctorDashboardView() {
   const [caseSeverity, setCaseSeverity] = useState("HIGH");
   const [caseDescription, setCaseDescription] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isRefreshing, setIsRefreshing] = useState(false);
 
-  const fetchIncidents = async () => {
+  const fetchIncidents = async (isManual = false) => {
+    if (isManual) setIsRefreshing(true);
     try {
       const res = await fetch(API_ENDPOINTS.incidents.base);
       if (res.ok) {
         const data = await res.json();
         setIncidents(data);
+        if (isManual) {
+          handleAction(`Dashboard incidents refreshed (${new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })}).`);
+        }
       }
-    } catch {}
+    } catch {
+      if (isManual) {
+        handleAction("Failed to refresh incidents.");
+      }
+    } finally {
+      if (isManual) {
+        setTimeout(() => setIsRefreshing(false), 300);
+      }
+    }
   };
 
   useEffect(() => {
@@ -164,11 +177,12 @@ export default function ProctorDashboardView() {
           </button>
           <button
             type="button"
-            onClick={fetchIncidents}
-            className="px-3.5 py-2 bg-white border border-slate-300 hover:bg-slate-50 text-slate-700 font-bold text-xs rounded-lg flex items-center gap-1.5 shadow-xs transition cursor-pointer"
+            onClick={() => fetchIncidents(true)}
+            disabled={isRefreshing}
+            className="px-3.5 py-2 bg-white border border-slate-300 hover:bg-slate-50 text-slate-700 font-bold text-xs rounded-lg flex items-center gap-1.5 shadow-xs transition cursor-pointer disabled:opacity-60"
           >
-            <RotateCcw className="w-3.5 h-3.5" />
-            <span>Refresh</span>
+            <RotateCcw className={`w-3.5 h-3.5 ${isRefreshing ? "animate-spin text-blue-700" : ""}`} />
+            <span>{isRefreshing ? "Refreshing..." : "Refresh"}</span>
           </button>
         </div>
       </div>

@@ -1,4 +1,5 @@
 "use client";
+import TopProfileBadge from "@/components/profile/TopProfileBadge";
 
 import React, { ReactNode, useState, useEffect } from "react";
 import Link from "next/link";
@@ -157,54 +158,14 @@ export default function StudentLayout({
               <span className="absolute top-1.5 right-1.5 w-2 h-2 rounded-full bg-red-600 ring-2 ring-white"></span>
             </Link>
 
-            {/* Student Dynamic Profile Badge */}
-            <div className="flex items-center gap-2.5 pl-2 border-l border-slate-200">
-              <Link
-                href="/dashboard/student/profile"
-                onClick={() => onTabChange && onTabChange("Profile")}
-                className="flex items-center gap-2.5 group cursor-pointer"
-              >
-                <div className="w-9 h-9 rounded-full overflow-hidden bg-[#0a2f77] ring-1 ring-slate-200 relative flex items-center justify-center text-white font-bold text-xs shrink-0">
-                  {user?.profilePicture ? (
-                    <img
-                      src={user.profilePicture}
-                      alt={displayName}
-                      className="w-full h-full object-cover"
-                    />
-                  ) : (
-                    <>
-                      <Image
-                        src="/student-alex.jpg"
-                        alt={displayName}
-                        width={36}
-                        height={36}
-                        className="w-full h-full object-cover"
-                        onError={(e) => {
-                          (e.target as HTMLElement).style.display = "none";
-                        }}
-                      />
-                      <span className="absolute">{initials}</span>
-                    </>
-                  )}
-                </div>
-                <div className="hidden lg:flex flex-col text-left">
-                  <span className="text-xs font-bold text-slate-900 group-hover:text-blue-800 transition leading-tight">
-                    {displayName} <span className="text-slate-500 font-normal">{displayBadge}</span>
-                  </span>
-                  <span className="text-[11px] text-slate-500 leading-tight">
-                    {displayDept}
-                  </span>
-                </div>
-              </Link>
-              <button
-                type="button"
-                onClick={() => performLogout()}
-                title="Log out"
-                className="ml-1 p-2 rounded-lg text-slate-400 hover:text-red-600 hover:bg-red-50 transition cursor-pointer"
-              >
-                <LogOut className="w-4 h-4" />
-              </button>
-            </div>
+            <TopProfileBadge
+              profileUrl="/dashboard/student/profile"
+              defaultFallbackPhoto="/student-alex.jpg"
+              defaultName="Alex Morgan"
+              defaultBadge="#STU-88201"
+              badgeSubtext={displayDept}
+              accentBg="bg-[#0a2f77]"
+            />
           </div>
         </div>
       </header>

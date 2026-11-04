@@ -1,4 +1,5 @@
 "use client";
+import TopProfileBadge from "@/components/profile/TopProfileBadge";
 
 import React, { useState, useEffect } from "react";
 import Link from "next/link";
@@ -35,15 +36,28 @@ export default function GuardParkingPage() {
   const [verificationResult, setVerificationResult] = useState<any>(null);
   const [verifying, setVerifying] = useState(false);
   const [actionNotice, setActionNotice] = useState<string | null>(null);
+  const [isRefreshing, setIsRefreshing] = useState(false);
 
-  const fetchPasses = async () => {
+  const fetchPasses = async (isManual = false) => {
+    if (isManual) setIsRefreshing(true);
     try {
       const res = await fetch(API_ENDPOINTS.parking.passes);
       if (res.ok) {
         const data = await res.json();
         setPasses(data);
+        if (isManual) {
+          handleAction(`Parking roster refreshed (${new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })}).`);
+        }
       }
-    } catch {}
+    } catch {
+      if (isManual) {
+        handleAction("Failed to refresh parking roster.");
+      }
+    } finally {
+      if (isManual) {
+        setTimeout(() => setIsRefreshing(false), 300);
+      }
+    }
   };
 
   useEffect(() => {
@@ -131,14 +145,17 @@ export default function GuardParkingPage() {
           </div>
 
           <div className="flex items-center gap-3">
-            <button
-              type="button"
-              onClick={() => performLogout()}
-              className="p-2 rounded-lg text-slate-400 hover:text-red-600 transition cursor-pointer"
-              title="Log Out"
-            >
-              <LogOut className="w-4 h-4" />
-            </button>
+            <Link href="/dashboard/guard/notifications" className="relative cursor-pointer">
+              <div className="w-9 h-9 rounded-full bg-slate-100 hover:bg-slate-200 flex items-center justify-center text-slate-600 transition">
+                <Bell className="w-4 h-4" />
+              </div>
+            </Link>
+            <TopProfileBadge
+              profileUrl="/dashboard/guard/profile"
+              defaultFallbackPhoto="/officer-vance.jpg"
+              defaultName="Officer Marcus Vance"
+              defaultBadge="Shield #4082"
+            />
           </div>
         </div>
       </header>
@@ -160,11 +177,12 @@ export default function GuardParkingPage() {
 
           <button
             type="button"
-            onClick={fetchPasses}
-            className="px-3.5 py-2 bg-white border border-slate-300 hover:bg-slate-50 text-slate-700 font-bold text-xs rounded-lg flex items-center gap-1.5 shadow-xs transition cursor-pointer self-start"
+            onClick={() => fetchPasses(true)}
+            disabled={isRefreshing}
+            className="px-3.5 py-2 bg-white border border-slate-300 hover:bg-slate-50 text-slate-700 font-bold text-xs rounded-lg flex items-center gap-1.5 shadow-xs transition cursor-pointer self-start disabled:opacity-60"
           >
-            <RotateCcw className="w-3.5 h-3.5 text-slate-500" />
-            <span>Refresh Roster</span>
+            <RotateCcw className={`w-3.5 h-3.5 text-slate-500 ${isRefreshing ? "animate-spin" : ""}`} />
+            <span>{isRefreshing ? "Refreshing..." : "Refresh Roster"}</span>
           </button>
         </div>
 

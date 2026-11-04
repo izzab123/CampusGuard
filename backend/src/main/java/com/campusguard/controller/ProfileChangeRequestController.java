@@ -81,20 +81,24 @@ public class ProfileChangeRequestController {
 
         userOpt.ifPresent(u -> {
             u.setProfileReviewStatus("APPROVED");
+            u.setPreviousFullName(null);
+            u.setPreviousProfilePicture(null);
             userRepository.save(u);
         });
 
-        // Notify Student
-        Notification studentNotif = new Notification(
-                "Student",
+        String targetRole = userOpt.map(User::getRole).orElse("Student");
+
+        // Notify Concerned User
+        Notification userNotif = new Notification(
+                targetRole,
                 req.getStudentEmail(),
                 "Profile Update Approved",
                 "Your profile update request (Name: '" + req.getNewFullName() + "') has been officially reviewed and approved by " + approver + ".",
                 "PROFILE_UPDATE",
                 "LOW"
         );
-        studentNotif.setProfileRequestId(req.getId());
-        notificationRepository.save(studentNotif);
+        userNotif.setProfileRequestId(req.getId());
+        notificationRepository.save(userNotif);
 
         return ResponseEntity.ok(Map.of(
                 "success", true,
@@ -131,32 +135,38 @@ public class ProfileChangeRequestController {
         req.setReviewedAt(LocalDateTime.now());
         profileRequestRepository.save(req);
 
-        // Revert student's User record back to previous values
+        // Revert user's User record back to previous values
         Optional<User> userOpt = (req.getUserId() != null)
                 ? userRepository.findById(req.getUserId())
                 : userRepository.findByEmailIgnoreCase(req.getStudentEmail());
 
+        String targetRole = "User";
         if (userOpt.isPresent()) {
             User u = userOpt.get();
+            if (u.getRole() != null && !u.getRole().isBlank()) {
+                targetRole = u.getRole();
+            }
             if (req.getPreviousFullName() != null) {
                 u.setFullName(req.getPreviousFullName());
             }
             u.setProfilePicture(req.getPreviousProfilePicture());
             u.setProfileReviewStatus("DENIED");
+            u.setPreviousFullName(null);
+            u.setPreviousProfilePicture(null);
             userRepository.save(u);
         }
 
-        // Send notification to the student with denial reason
-        Notification studentNotif = new Notification(
-                "Student",
+        // Send notification to the concerned person with denial reason
+        Notification userNotif = new Notification(
+                targetRole,
                 req.getStudentEmail(),
                 "Profile Update Denied",
                 "Your profile update request was reviewed and denied by " + denier + ". Reason: " + reason + ". Your profile has been restored to your previous details.",
                 "PROFILE_UPDATE",
                 "HIGH"
         );
-        studentNotif.setProfileRequestId(req.getId());
-        notificationRepository.save(studentNotif);
+        userNotif.setProfileRequestId(req.getId());
+        notificationRepository.save(userNotif);
 
         return ResponseEntity.ok(Map.of(
                 "success", true,

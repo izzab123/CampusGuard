@@ -1,4 +1,7 @@
 "use client";
+import PhotoModal from "@/components/profile/PhotoModal";
+import Image from "next/image";
+import { Camera, Maximize2 } from "lucide-react";
 
 import React, { useState, useEffect } from "react";
 import {
@@ -22,15 +25,66 @@ export default function AdminProfileView() {
   const [name, setName] = useState("");
   const [department, setDepartment] = useState("");
   const [badgeNumber, setBadgeNumber] = useState("");
+  const [profilePicture, setProfilePicture] = useState<string | null>(null);
+  const [isPhotoModalOpen, setIsPhotoModalOpen] = useState(false);
   const [actionNotice, setActionNotice] = useState<string | null>(null);
+  const fileInputRef = React.useRef<HTMLInputElement>(null);
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (!file.type.startsWith("image/")) {
+      setActionNotice("Please select a valid image file (PNG, JPG, WebP).");
+      return;
+    }
+
+    if (file.size > 2.5 * 1024 * 1024) {
+      setActionNotice("Profile picture must be less than 2.5MB in size.");
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.onload = () => {
+      if (typeof reader.result === "string") {
+        setProfilePicture(reader.result);
+        setActionNotice("Photo selected! Click 'Save' to apply changes.");
+      }
+    };
+    reader.readAsDataURL(file);
+  };
 
   useEffect(() => {
     const authUser = getStoredAuthUser();
     if (authUser) {
       setUser(authUser);
-      setName(authUser.name || "System Administrator");
+      setName(authUser.fullName || authUser.name || "System Administrator");
       setDepartment(authUser.department || "Institutional Security IT");
       setBadgeNumber(authUser.badgeNumber || "ADM-001");
+      setProfilePicture(authUser.profilePicture || null);
+
+      if (authUser.email) {
+        fetch(`${API_ENDPOINTS.auth.profile}?email=${encodeURIComponent(authUser.email)}`)
+          .then((res) => (res.ok ? res.json() : null))
+          .then((data) => {
+            if (data) {
+              const updated: AuthUser = {
+                ...authUser,
+                fullName: data.fullName || authUser.fullName,
+                name: data.fullName || authUser.name,
+                department: data.department || authUser.department,
+                badgeNumber: data.badgeNumber || authUser.badgeNumber,
+                profilePicture: data.profilePicture !== undefined ? data.profilePicture : authUser.profilePicture,
+                profileReviewStatus: data.profileReviewStatus || authUser.profileReviewStatus,
+              };
+              updateStoredAuthUser(updated);
+              setUser(updated);
+              setName(updated.fullName || updated.name || "System Administrator");
+              setProfilePicture(updated.profilePicture || null);
+            }
+          })
+          .catch(() => {});
+      }
     }
   }, []);
 
@@ -62,37 +116,34 @@ export default function AdminProfileView() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           email: user.email,
-          name,
+          fullName: name.trim(),
+          name: name.trim(),
           department,
           badgeNumber,
+          profilePicture: profilePicture || "",
         }),
       });
 
       if (res.ok) {
         const updated = await res.json();
-        updateStoredAuthUser({
-          name: updated.name || name,
+        const updatedUser: AuthUser = {
+          ...user,
+          fullName: updated.fullName || updated.name || name.trim(),
+          name: updated.name || updated.fullName || name.trim(),
           department: updated.department || department,
           badgeNumber: updated.badgeNumber || badgeNumber,
-        });
-        setUser((prev) =>
-          prev
-            ? {
-                ...prev,
-                name: updated.name || name,
-                department: updated.department || department,
-                badgeNumber: updated.badgeNumber || badgeNumber,
-              }
-            : null
-        );
+          profilePicture: updated.profilePicture !== undefined ? updated.profilePicture : profilePicture,
+        };
+        updateStoredAuthUser(updatedUser);
+        setUser(updatedUser);
         setIsEditing(false);
-        setActionNotice("Administrator credentials updated successfully.");
+        setActionNotice("Administrator profile updated successfully.");
         setTimeout(() => setActionNotice(null), 3000);
       }
     } catch {
-      updateStoredAuthUser({ name, department, badgeNumber });
+      updateStoredAuthUser({ fullName: name, name, department, badgeNumber, profilePicture: profilePicture || undefined });
       setIsEditing(false);
-      setActionNotice("Profile updated.");
+      setActionNotice("Profile updated locally.");
       setTimeout(() => setActionNotice(null), 3000);
     }
   };
@@ -171,8 +222,42 @@ export default function AdminProfileView() {
           <div className="bg-white border border-slate-200 rounded-2xl p-6 shadow-xs space-y-5">
             <div className="flex items-start justify-between">
               <div className="flex items-start gap-4">
-                <div className="w-16 h-16 rounded-2xl bg-[#0a2f77] text-white font-black text-xl flex items-center justify-center shrink-0 shadow-md">
-                  {displayName ? displayName.slice(0, 2).toUpperCase() : "SA"}
+                <div className="flex flex-col items-center gap-1.5">
+                  <button
+                    type="button"
+                    onClick={() => setIsPhotoModalOpen(true)}
+                    title="Click to view full photo"
+                    className="relative w-16 h-16 rounded-2xl overflow-hidden bg-[#0a2f77] text-white font-black text-xl flex items-center justify-center shrink-0 shadow-md group cursor-pointer ring-2 ring-blue-700/20"
+                  >
+                    {profilePicture ? (
+                      <img src={profilePicture} alt={name || displayName} className="w-full h-full object-cover group-hover:scale-105 transition" />
+                    ) : (
+                      <span>{displayName ? displayName.slice(0, 2).toUpperCase() : "SA"}</span>
+                    )}
+                    <div className="absolute inset-0 bg-slate-900/40 opacity-0 group-hover:opacity-100 transition flex items-center justify-center text-white">
+                      <Maximize2 className="w-4 h-4 drop-shadow-md" />
+                    </div>
+                  </button>
+
+                  {isEditing && (
+                    <div>
+                      <button
+                        type="button"
+                        onClick={() => fileInputRef.current?.click()}
+                        className="px-2 py-0.5 bg-blue-50 hover:bg-blue-100 text-blue-700 border border-blue-200 text-[10px] font-bold rounded flex items-center gap-1 transition cursor-pointer"
+                      >
+                        <Camera className="w-3 h-3" />
+                        <span>Change</span>
+                      </button>
+                      <input
+                        ref={fileInputRef}
+                        type="file"
+                        accept="image/*"
+                        onChange={handleFileChange}
+                        className="hidden"
+                      />
+                    </div>
+                  )}
                 </div>
                 <div className="space-y-1">
                   <h2 className="text-lg font-extrabold text-slate-900 leading-tight">
@@ -306,6 +391,16 @@ export default function AdminProfileView() {
           </div>
         </div>
       </div>
+      {/* Photo Modal */}
+      <PhotoModal
+        isOpen={isPhotoModalOpen}
+        onClose={() => setIsPhotoModalOpen(false)}
+        photoSrc={profilePicture}
+        defaultFallback=""
+        name={name || displayName}
+        badge={badgeNumber || "ADM-001"}
+        onEditPhoto={isEditing ? () => fileInputRef.current?.click() : undefined}
+      />
     </div>
   );
 }

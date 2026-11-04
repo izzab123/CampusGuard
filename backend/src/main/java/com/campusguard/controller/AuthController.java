@@ -363,9 +363,12 @@ public class AuthController {
             String picVal = body.get("profilePicture");
             String oldName = u.getFullName();
             String oldPic = u.getProfilePicture();
-            boolean isStudent = "Student".equalsIgnoreCase(u.getRole());
+            boolean isAdmin = "Admin".equalsIgnoreCase(u.getRole()) || "Super Admin".equalsIgnoreCase(u.getRole());
 
-            if (isStudent) {
+            if (!isAdmin) {
+                // All non-admin roles (Student, Security Guard, Shift Supervisor, Proctor and DSW, etc.):
+                // Changes are applied initially in the portals,
+                // but a notification is sent strictly and ONLY to Admin.
                 // Students CANNOT change department
                 // If previous values not stored yet, capture current ones for revert capability
                 if (u.getPreviousFullName() == null) {
@@ -374,6 +377,9 @@ public class AuthController {
                 if (u.getPreviousProfilePicture() == null) {
                     u.setPreviousProfilePicture(oldPic);
                 }
+
+                String revertName = u.getPreviousFullName();
+                String revertPic = u.getPreviousProfilePicture();
 
                 if (nameVal != null && !nameVal.isBlank()) {
                     u.setFullName(nameVal.trim());
@@ -393,19 +399,20 @@ public class AuthController {
                         u.getEmail(),
                         oldName != null ? oldName : u.getEmail(),
                         u.getBadgeNumber(),
-                        oldName,
+                        revertName,
                         u.getFullName(),
-                        oldPic,
+                        revertPic,
                         u.getProfilePicture()
                 );
                 com.campusguard.model.ProfileChangeRequest savedReq = profileRequestRepository.save(req);
 
                 // Send notification ONLY to Admin
+                String roleLabel = (u.getRole() != null && !u.getRole().isBlank()) ? u.getRole() : "User";
                 com.campusguard.model.Notification notif = new com.campusguard.model.Notification(
                         "Admin",
                         null,
-                        "Student Profile Change Request: " + u.getFullName(),
-                        "Student " + (oldName != null ? oldName : u.getEmail()) + " (#" + (u.getBadgeNumber() != null ? u.getBadgeNumber() : "N/A") + ") requested profile updates (Name: '" + u.getFullName() + "'" + (picVal != null && !picVal.equals(oldPic) ? ", Photo updated" : "") + "). Pending administrative approval.",
+                        roleLabel + " Profile Change Request: " + u.getFullName(),
+                        roleLabel + " " + (oldName != null ? oldName : u.getEmail()) + " (" + u.getEmail() + ") requested profile updates (Name: '" + u.getFullName() + "'" + (picVal != null && !picVal.equals(oldPic) ? ", Photo updated" : "") + "). Pending administrative approval.",
                         "PROFILE_UPDATE",
                         "MEDIUM"
                 );
