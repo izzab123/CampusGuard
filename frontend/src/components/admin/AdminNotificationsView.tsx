@@ -336,11 +336,11 @@ export default function AdminNotificationsView() {
         requestId={selectedProfileRequestId}
         onApproved={() => {
           fetchNotifications();
-          handleAction("Student profile change approved! Notification sent to student.");
+          handleAction("Profile change approved! Notification sent.");
         }}
         onDenied={() => {
           fetchNotifications();
-          handleAction("Student profile change denied. Profile details reverted and reason sent to student.");
+          handleAction("Profile change denied. Profile details reverted and reason sent to the user.");
         }}
         onClose={() => {
           setIsProfileModalOpen(false);

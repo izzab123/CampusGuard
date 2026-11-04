@@ -1,9 +1,11 @@
 "use client";
+import TopProfileBadge from "@/components/profile/TopProfileBadge";
 
 import React, { useState, useEffect } from "react";
 import Link from "next/link";
 import {
   ShieldCheck,
+  Bell,
   Clock,
   RotateCcw,
   CheckCircle2,
@@ -73,16 +75,21 @@ export default function GuardHandoffPage() {
     isWatchItemsValid &&
     postLocation.trim().length > 0;
 
-  const fetchHandoffs = async () => {
+  const fetchHandoffs = async (isManual = false) => {
     setLoading(true);
     try {
       const res = await fetch(API_ENDPOINTS.handoffs.list);
       if (res.ok) {
         const data = await res.json();
         setHandoffs(Array.isArray(data) ? data : []);
+        if (isManual) {
+          handleAction("success", `Shift handoff log refreshed (${new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })}).`);
+        }
       }
     } catch {
-      // Offline fallback handling
+      if (isManual) {
+        handleAction("error", "Failed to refresh shift handoff log.");
+      }
     } finally {
       setLoading(false);
     }
@@ -202,20 +209,17 @@ export default function GuardHandoffPage() {
           </div>
 
           <div className="flex items-center gap-3">
-            <div className="hidden sm:flex flex-col text-right">
-              <span className="text-xs font-bold text-slate-900">{outgoingGuardName}</span>
-              <span className="text-[10px] font-mono font-semibold text-blue-700">
-                {outgoingGuardId || "Duty Guard"}
-              </span>
-            </div>
-            <button
-              type="button"
-              onClick={() => performLogout()}
-              className="p-2 rounded-lg text-slate-400 hover:text-red-600 transition cursor-pointer"
-              title="Log Out"
-            >
-              <LogOut className="w-4 h-4" />
-            </button>
+            <Link href="/dashboard/guard/notifications" className="relative cursor-pointer">
+              <div className="w-9 h-9 rounded-full bg-slate-100 hover:bg-slate-200 flex items-center justify-center text-slate-600 transition">
+                <Bell className="w-4 h-4" />
+              </div>
+            </Link>
+            <TopProfileBadge
+              profileUrl="/dashboard/guard/profile"
+              defaultFallbackPhoto="/officer-vance.jpg"
+              defaultName="Officer Marcus Vance"
+              defaultBadge="Shield #4082"
+            />
           </div>
         </div>
       </header>
@@ -261,11 +265,12 @@ export default function GuardHandoffPage() {
           <div className="flex items-center gap-3">
             <button
               type="button"
-              onClick={fetchHandoffs}
-              className="px-3.5 py-2 bg-white border border-slate-300 hover:bg-slate-50 text-slate-700 font-bold text-xs rounded-xl flex items-center gap-1.5 shadow-2xs transition cursor-pointer"
+              onClick={() => fetchHandoffs(true)}
+              disabled={loading}
+              className="px-3.5 py-2 bg-white border border-slate-300 hover:bg-slate-50 text-slate-700 font-bold text-xs rounded-xl flex items-center gap-1.5 shadow-2xs transition cursor-pointer disabled:opacity-60"
             >
               <RotateCcw className={`w-3.5 h-3.5 text-slate-500 ${loading ? "animate-spin" : ""}`} />
-              <span>Refresh Log</span>
+              <span>{loading ? "Refreshing..." : "Refresh Log"}</span>
             </button>
           </div>
         </div>

@@ -45,6 +45,12 @@ export default function StudentRegisterVehicleView() {
   // Modal State
   const [selectedVehicleId, setSelectedVehicleId] = useState<number | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [refreshNotice, setRefreshNotice] = useState<string | null>(null);
+
+  const handleAction = (msg: string) => {
+    setRefreshNotice(msg);
+    setTimeout(() => setRefreshNotice(null), 3500);
+  };
 
   useEffect(() => {
     const stored = getStoredAuthUser();
@@ -57,7 +63,10 @@ export default function StudentRegisterVehicleView() {
     fetchMyVehicles(stored);
   }, []);
 
-  const fetchMyVehicles = async (currentUser?: AuthUser | null) => {
+  const [isRefreshing, setIsRefreshing] = useState(false);
+
+  const fetchMyVehicles = async (currentUser?: AuthUser | null, isManual = false) => {
+    if (isManual) setIsRefreshing(true);
     setLoadingList(true);
     try {
       const u = currentUser || user || getStoredAuthUser();
@@ -65,11 +74,19 @@ export default function StudentRegisterVehicleView() {
       if (res.ok) {
         const data = await res.json();
         setMyVehicles(Array.isArray(data) ? data : []);
+        if (isManual) {
+          handleAction(`Vehicle registrations refreshed (${new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })}).`);
+        }
       }
     } catch {
-      // fallback
+      if (isManual) {
+        handleAction("Failed to refresh vehicle registrations.");
+      }
     } finally {
       setLoadingList(false);
+      if (isManual) {
+        setTimeout(() => setIsRefreshing(false), 300);
+      }
     }
   };
 
@@ -172,6 +189,19 @@ export default function StudentRegisterVehicleView() {
 
   return (
     <div className="space-y-6">
+      {refreshNotice && (
+        <div className="p-3.5 bg-blue-50 border border-blue-200 rounded-xl text-xs font-semibold text-blue-900 flex items-center justify-between shadow-xs animate-in fade-in">
+          <span>{refreshNotice}</span>
+          <button
+            type="button"
+            onClick={() => setRefreshNotice(null)}
+            className="text-blue-700 hover:text-blue-900 font-bold ml-2 cursor-pointer"
+          >
+            ✕
+          </button>
+        </div>
+      )}
+
       {/* Header Banner */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
@@ -189,11 +219,12 @@ export default function StudentRegisterVehicleView() {
 
         <button
           type="button"
-          onClick={() => fetchMyVehicles()}
-          className="px-3.5 py-2 bg-white border border-slate-300 hover:bg-slate-50 text-slate-700 font-bold text-xs rounded-lg flex items-center gap-1.5 shadow-xs transition cursor-pointer self-start sm:self-auto"
+          onClick={() => fetchMyVehicles(null, true)}
+          disabled={isRefreshing || loadingList}
+          className="px-3.5 py-2 bg-white border border-slate-300 hover:bg-slate-50 text-slate-700 font-bold text-xs rounded-lg flex items-center gap-1.5 shadow-xs transition cursor-pointer self-start sm:self-auto disabled:opacity-60"
         >
-          <RotateCcw className="w-3.5 h-3.5 text-slate-500" />
-          <span>Refresh</span>
+          <RotateCcw className={`w-3.5 h-3.5 text-slate-500 ${isRefreshing || loadingList ? "animate-spin" : ""}`} />
+          <span>{isRefreshing ? "Refreshing..." : "Refresh"}</span>
         </button>
       </div>
 

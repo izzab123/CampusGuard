@@ -1,4 +1,5 @@
 "use client";
+import TopProfileBadge from "@/components/profile/TopProfileBadge";
 
 import React, { useState, useEffect } from "react";
 import Link from "next/link";
@@ -45,8 +46,10 @@ export default function GuardIncidentsPage() {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [actionNotice, setActionNotice] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  const [isRefreshing, setIsRefreshing] = useState(false);
 
-  const fetchIncidents = async () => {
+  const fetchIncidents = async (isManual = false) => {
+    if (isManual) setIsRefreshing(true);
     try {
       const currentUser = getStoredAuthUser();
       const myEndpoint = currentUser?.email
@@ -66,7 +69,18 @@ export default function GuardIncidentsPage() {
         const myData = await myRes.json();
         setMyIncidentsList(myData);
       }
-    } catch {}
+      if (isManual) {
+        handleAction(`Incident list refreshed (${new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })}).`);
+      }
+    } catch {
+      if (isManual) {
+        handleAction("Failed to refresh incidents. Check connection.");
+      }
+    } finally {
+      if (isManual) {
+        setTimeout(() => setIsRefreshing(false), 300);
+      }
+    }
   };
 
   useEffect(() => {
@@ -173,14 +187,17 @@ export default function GuardIncidentsPage() {
           </div>
 
           <div className="flex items-center gap-3">
-            <button
-              type="button"
-              onClick={() => performLogout()}
-              className="p-2 rounded-lg text-slate-400 hover:text-red-600 transition cursor-pointer"
-              title="Log Out"
-            >
-              <LogOut className="w-4 h-4" />
-            </button>
+            <Link href="/dashboard/guard/notifications" className="relative cursor-pointer">
+              <div className="w-9 h-9 rounded-full bg-slate-100 hover:bg-slate-200 flex items-center justify-center text-slate-600 transition">
+                <Bell className="w-4 h-4" />
+              </div>
+            </Link>
+            <TopProfileBadge
+              profileUrl="/dashboard/guard/profile"
+              defaultFallbackPhoto="/officer-vance.jpg"
+              defaultName="Officer Marcus Vance"
+              defaultBadge="Shield #4082"
+            />
           </div>
         </div>
       </header>
@@ -202,11 +219,12 @@ export default function GuardIncidentsPage() {
 
           <button
             type="button"
-            onClick={fetchIncidents}
-            className="px-3.5 py-2 bg-white border border-slate-300 hover:bg-slate-50 text-slate-700 font-bold text-xs rounded-lg flex items-center gap-1.5 shadow-xs transition cursor-pointer self-start"
+            onClick={() => fetchIncidents(true)}
+            disabled={isRefreshing}
+            className="px-3.5 py-2 bg-white border border-slate-300 hover:bg-slate-50 text-slate-700 font-bold text-xs rounded-lg flex items-center gap-1.5 shadow-xs transition cursor-pointer self-start disabled:opacity-60"
           >
-            <RotateCcw className="w-3.5 h-3.5 text-slate-500" />
-            <span>Refresh</span>
+            <RotateCcw className={`w-3.5 h-3.5 text-slate-500 ${isRefreshing ? "animate-spin" : ""}`} />
+            <span>{isRefreshing ? "Refreshing..." : "Refresh"}</span>
           </button>
         </div>
 

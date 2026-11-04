@@ -33,16 +33,21 @@ export default function AdminAuditLogsView() {
     loadLogs();
   }, []);
 
-  const loadLogs = async () => {
+  const loadLogs = async (isManual = false) => {
     setIsLoading(true);
     try {
       const res = await fetch(API_ENDPOINTS.auditLogs.list);
       if (res.ok) {
         const data = await res.json();
         setLogs(Array.isArray(data) ? data : []);
+        if (isManual) {
+          showNotice(`Audit ledger refreshed (${new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })}).`);
+        }
       }
     } catch {
-      // ignore
+      if (isManual) {
+        showNotice("Failed to refresh audit ledger.");
+      }
     } finally {
       setIsLoading(false);
     }
@@ -122,11 +127,12 @@ export default function AdminAuditLogsView() {
 
           <button
             type="button"
-            onClick={loadLogs}
-            className="px-3.5 py-2 bg-slate-100 hover:bg-slate-200 text-slate-800 font-bold text-xs rounded-lg flex items-center gap-1.5 transition cursor-pointer"
+            onClick={() => loadLogs(true)}
+            disabled={isLoading}
+            className="px-3.5 py-2 bg-slate-100 hover:bg-slate-200 text-slate-800 font-bold text-xs rounded-lg flex items-center gap-1.5 transition cursor-pointer disabled:opacity-60"
           >
             <RotateCcw className={`w-3.5 h-3.5 ${isLoading ? "animate-spin" : ""}`} />
-            <span>Refresh Ledger</span>
+            <span>{isLoading ? "Refreshing..." : "Refresh Ledger"}</span>
           </button>
         </div>
       </div>

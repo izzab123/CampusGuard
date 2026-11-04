@@ -1,4 +1,5 @@
 "use client";
+import TopProfileBadge from "@/components/profile/TopProfileBadge";
 
 import React, { useState, ReactNode } from "react";
 import Link from "next/link";
@@ -121,33 +122,13 @@ export default function AdminLayout({
               <span className="absolute top-1.5 right-1.5 w-2 h-2 rounded-full bg-red-600 ring-2 ring-white"></span>
             </Link>
 
-            {/* System Admin Badge */}
-            <div className="flex items-center gap-2 pl-2 border-l border-slate-200">
-              <Link
-                href="/dashboard/admin/profile"
-                onClick={() => onTabChange && onTabChange("Profile")}
-                className="w-9 h-9 rounded-full bg-[#0a2f77] text-white flex items-center justify-center font-bold text-xs shadow-xs hover:bg-[#082660] transition cursor-pointer"
-                title="System Administrator Profile"
-              >
-                SA
-              </Link>
-              <Link
-                href="/dashboard/admin/profile"
-                onClick={() => onTabChange && onTabChange("Profile")}
-                className="w-9 h-9 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-700 flex items-center justify-center transition cursor-pointer"
-                title="System Administrator Details"
-              >
-                <User className="w-4 h-4" />
-              </Link>
-              <button
-                type="button"
-                onClick={() => performLogout()}
-                title="Log out"
-                className="p-2 rounded-lg text-slate-400 hover:text-red-600 hover:bg-red-50 transition cursor-pointer"
-              >
-                <LogOut className="w-4 h-4" />
-              </button>
-            </div>
+            <TopProfileBadge
+              profileUrl="/dashboard/admin/profile"
+              defaultFallbackPhoto=""
+              defaultName="System Administrator"
+              defaultBadge="Root Admin ADM-001"
+              accentBg="bg-[#0a2f77]"
+            />
           </div>
         </div>
       </header>

@@ -20,7 +20,7 @@ import {
   Cpu,
   Dumbbell
 } from "lucide-react";
-import { getStoredAuthUser, AuthUser } from "@/lib/auth";
+import { getStoredAuthUser, saveAuthUser, AuthUser } from "@/lib/auth";
 import { API_ENDPOINTS } from "@/lib/api";
 
 interface ParkingPassData {
@@ -39,10 +39,32 @@ export default function StudentQrView() {
   const [parkingPass, setParkingPass] = useState<ParkingPassData | null>(null);
   const [secondsLeft, setSecondsLeft] = useState(272); // 04:32
   const [actionNotice, setActionNotice] = useState<string | null>(null);
+  const [isRefreshing, setIsRefreshing] = useState(false);
 
   useEffect(() => {
     const stored = getStoredAuthUser();
     setUser(stored);
+
+    if (stored?.email) {
+      fetch(`${API_ENDPOINTS.auth.profile}?email=${encodeURIComponent(stored.email)}`)
+        .then((res) => (res.ok ? res.json() : null))
+        .then((data) => {
+          if (data) {
+            const updated: AuthUser = {
+              ...stored,
+              fullName: data.fullName || stored.fullName,
+              name: data.fullName || stored.name,
+              department: data.department || stored.department,
+              badgeNumber: data.badgeNumber || stored.badgeNumber,
+              profilePicture: data.profilePicture !== undefined ? data.profilePicture : stored.profilePicture,
+              profileReviewStatus: data.profileReviewStatus || stored.profileReviewStatus,
+            };
+            saveAuthUser(updated);
+            setUser(updated);
+          }
+        })
+        .catch(() => {});
+    }
 
     // Fetch live parking pass
     fetch(API_ENDPOINTS.parking.my(stored?.fullName || "Alex Morgan"))
@@ -52,10 +74,23 @@ export default function StudentQrView() {
       })
       .catch(() => {});
 
+    const handleAuthChange = (e: any) => {
+      if (e.detail) {
+        setUser(e.detail);
+      } else {
+        setUser(getStoredAuthUser());
+      }
+    };
+
+    window.addEventListener("campusguard_auth_change", handleAuthChange);
+
     const timer = setInterval(() => {
       setSecondsLeft((prev) => (prev > 0 ? prev - 1 : 300));
     }, 1000);
-    return () => clearInterval(timer);
+    return () => {
+      clearInterval(timer);
+      window.removeEventListener("campusguard_auth_change", handleAuthChange);
+    };
   }, []);
 
   const formatTime = (totalSeconds: number) => {
@@ -105,14 +140,48 @@ export default function StudentQrView() {
         <div className="flex items-center gap-2.5 shrink-0 flex-wrap">
           <button
             type="button"
-            onClick={() => {
+            onClick={async () => {
+              setIsRefreshing(true);
               setSecondsLeft(300);
-              handleAction("Token refreshed. New rotating cryptographic key generated.");
+              const stored = getStoredAuthUser();
+              if (stored?.fullName) {
+                try {
+                  const passRes = await fetch(API_ENDPOINTS.parking.my(stored.fullName));
+                  if (passRes.ok) {
+                    const data = await passRes.json();
+                    if (data) setParkingPass(data);
+                  }
+                } catch {}
+              }
+              if (stored?.email) {
+                try {
+                  const profRes = await fetch(`${API_ENDPOINTS.auth.profile}?email=${encodeURIComponent(stored.email)}`);
+                  if (profRes.ok) {
+                    const profData = await profRes.json();
+                    if (profData) {
+                      const updated: AuthUser = {
+                        ...stored,
+                        fullName: profData.fullName || stored.fullName,
+                        name: profData.fullName || stored.name,
+                        department: profData.department || stored.department,
+                        badgeNumber: profData.badgeNumber || stored.badgeNumber,
+                        profilePicture: profData.profilePicture !== undefined ? profData.profilePicture : stored.profilePicture,
+                        profileReviewStatus: profData.profileReviewStatus || stored.profileReviewStatus,
+                      };
+                      saveAuthUser(updated);
+                      setUser(updated);
+                    }
+                  }
+                } catch {}
+              }
+              handleAction(`Token and credential data refreshed (${new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })}).`);
+              setTimeout(() => setIsRefreshing(false), 300);
             }}
-            className="px-3.5 py-2 bg-white border border-slate-300 hover:bg-slate-50 text-slate-700 font-bold text-xs rounded-lg flex items-center gap-1.5 shadow-xs transition cursor-pointer"
+            disabled={isRefreshing}
+            className="px-3.5 py-2 bg-white border border-slate-300 hover:bg-slate-50 text-slate-700 font-bold text-xs rounded-lg flex items-center gap-1.5 shadow-xs transition cursor-pointer disabled:opacity-60"
           >
-            <RotateCcw className="w-3.5 h-3.5 text-slate-500" />
-            <span>Regenerate Token</span>
+            <RotateCcw className={`w-3.5 h-3.5 text-slate-500 ${isRefreshing ? "animate-spin" : ""}`} />
+            <span>{isRefreshing ? "Refreshing..." : "Regenerate Token"}</span>
           </button>
           <button
             type="button"
@@ -143,16 +212,27 @@ export default function StudentQrView() {
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-4 rounded-xl bg-slate-50 border border-slate-200/80">
               <div className="flex items-center gap-3.5">
                 <div className="relative w-12 h-12 rounded-xl overflow-hidden ring-2 ring-blue-700/20 bg-slate-200 shrink-0">
-                  <Image
-                    src="/student-alex.jpg"
-                    alt="Student Alex"
-                    width={48}
-                    height={48}
-                    className="w-full h-full object-cover"
-                    onError={(e) => {
-                      (e.target as HTMLElement).style.display = "none";
-                    }}
-                  />
+                  {user?.profilePicture ? (
+                    <img
+                      src={user.profilePicture}
+                      alt={user?.fullName || "Student"}
+                      className="w-full h-full object-cover"
+                      onError={(e) => {
+                        (e.target as HTMLImageElement).src = "/student-alex.jpg";
+                      }}
+                    />
+                  ) : (
+                    <Image
+                      src="/student-alex.jpg"
+                      alt={user?.fullName || "Student"}
+                      width={48}
+                      height={48}
+                      className="w-full h-full object-cover"
+                      onError={(e) => {
+                        (e.target as HTMLElement).style.display = "none";
+                      }}
+                    />
+                  )}
                   <div className="absolute bottom-0 right-0 w-3.5 h-3.5 bg-emerald-500 rounded-full border-2 border-white"></div>
                 </div>
                 <div>

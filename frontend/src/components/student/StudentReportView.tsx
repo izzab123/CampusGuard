@@ -17,6 +17,7 @@ import {
   Building,
   UserCheck,
   CheckCircle2,
+  RotateCcw,
   Loader2
 } from "lucide-react";
 import { getStoredAuthUser } from "@/lib/auth";
@@ -36,14 +37,12 @@ interface IncidentItem {
 }
 
 export default function StudentReportView() {
-  const [category, setCategory] = useState("suspicious");
-  const [location, setLocation] = useState("North Quad — Between Turing Hall & Library");
-  const [specificSpot, setSpecificSpot] = useState("North Quad Walkway towards Turing Hall");
+  const [category, setCategory] = useState("");
+  const [location, setLocation] = useState("");
+  const [specificSpot, setSpecificSpot] = useState("");
   const [timeOccurred, setTimeOccurred] = useState("Occurred Just Now");
   const [priority, setPriority] = useState("MEDIUM");
-  const [description, setDescription] = useState(
-    "Unattended bicycle with sheared cable lock on sidewalk. Individual left rapidly toward library when approached."
-  );
+  const [description, setDescription] = useState("");
   const [hasFile, setHasFile] = useState(false);
   const [anonymous, setAnonymous] = useState(false);
   const [officerFollowUp, setOfficerFollowUp] = useState(true);
@@ -60,7 +59,10 @@ export default function StudentReportView() {
   const [selectedIncidentId, setSelectedIncidentId] = useState<number | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
 
-  const fetchReports = async () => {
+  const [isRefreshingReports, setIsRefreshingReports] = useState(false);
+
+  const fetchReports = async (isManual = false) => {
+    if (isManual) setIsRefreshingReports(true);
     try {
       const user = getStoredAuthUser();
       const endpoint = user?.email
@@ -70,8 +72,19 @@ export default function StudentReportView() {
       if (res.ok) {
         const data = await res.json();
         setPastReports(data);
+        if (isManual) {
+          handleAction(`Incident reports list refreshed (${new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })}).`);
+        }
       }
-    } catch {}
+    } catch {
+      if (isManual) {
+        handleAction("Failed to refresh incident reports.");
+      }
+    } finally {
+      if (isManual) {
+        setTimeout(() => setIsRefreshingReports(false), 300);
+      }
+    }
   };
 
   useEffect(() => {
@@ -124,6 +137,19 @@ export default function StudentReportView() {
 
   const handleSubmit = async (e?: React.FormEvent) => {
     if (e) e.preventDefault();
+    if (!category) {
+      handleAction("Please select an incident category.");
+      return;
+    }
+    if (!location.trim()) {
+      handleAction("Please enter location details.");
+      return;
+    }
+    if (!description.trim()) {
+      handleAction("Please enter the incident narrative.");
+      return;
+    }
+
     setSubmitting(true);
     const user = getStoredAuthUser();
     const reporterName = anonymous ? "Anonymous Student" : (user?.fullName || "Alex Morgan");
@@ -133,10 +159,10 @@ export default function StudentReportView() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          title: `Report: ${category.toUpperCase()} at ${location}`,
-          description,
+          title: `Report: ${category.toUpperCase()} at ${location.trim()}`,
+          description: description.trim(),
           severity: priority,
-          location: specificSpot ? `${location} (${specificSpot})` : location,
+          location: specificSpot.trim() ? `${location.trim()} (${specificSpot.trim()})` : location.trim(),
           category,
           reporterName,
           reporterRole: "Student",
@@ -148,6 +174,9 @@ export default function StudentReportView() {
         const saved = await res.json();
         handleAction(`Incident #${saved.id} successfully dispatched to Campus Operations NOC!`);
         setDescription("");
+        setCategory("");
+        setLocation("");
+        setSpecificSpot("");
         setHasFile(false);
         fetchReports();
       } else {
@@ -407,7 +436,7 @@ export default function StudentReportView() {
             <div className="flex items-center justify-end pt-2 border-t border-slate-100">
               <button
                 type="button"
-                disabled={submitting || !description.trim()}
+                disabled={submitting || !category || !location.trim() || !description.trim()}
                 onClick={() => handleSubmit()}
                 className="px-5 py-2.5 bg-[#0a2f77] hover:bg-[#082660] text-white font-bold text-xs rounded-lg flex items-center gap-2 shadow-xs transition cursor-pointer disabled:opacity-50"
               >
@@ -502,10 +531,12 @@ export default function StudentReportView() {
               </div>
               <button
                 type="button"
-                onClick={fetchReports}
-                className="text-xs font-bold text-blue-700 hover:underline cursor-pointer"
+                onClick={() => fetchReports(true)}
+                disabled={isRefreshingReports}
+                className="text-xs font-bold text-blue-700 hover:underline cursor-pointer flex items-center gap-1 disabled:opacity-60"
               >
-                Refresh
+                <RotateCcw className={`w-3 h-3 ${isRefreshingReports ? "animate-spin" : ""}`} />
+                <span>{isRefreshingReports ? "Refreshing..." : "Refresh"}</span>
               </button>
             </div>
 

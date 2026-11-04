@@ -35,13 +35,21 @@ export default function StudentParkVehicleView() {
   const [generatingQr, setGeneratingQr] = useState<boolean>(false);
   const [actionNotice, setActionNotice] = useState<string | null>(null);
 
+  const handleAction = (msg: string) => {
+    setActionNotice(msg);
+    setTimeout(() => setActionNotice(null), 3500);
+  };
+
   useEffect(() => {
     const stored = getStoredAuthUser();
     setUser(stored);
     fetchVehicles(stored);
   }, []);
 
-  const fetchVehicles = async (currentUser?: AuthUser | null) => {
+  const [isRefreshing, setIsRefreshing] = useState(false);
+
+  const fetchVehicles = async (currentUser?: AuthUser | null, isManual = false) => {
+    if (isManual) setIsRefreshing(true);
     setLoading(true);
     try {
       const u = currentUser || user || getStoredAuthUser();
@@ -60,11 +68,19 @@ export default function StudentParkVehicleView() {
         } else {
           setSelectedVehicleId(null);
         }
+        if (isManual) {
+          handleAction(`Parking vehicle records refreshed (${new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })}).`);
+        }
       }
     } catch {
-      // fallback
+      if (isManual) {
+        handleAction("Failed to refresh parking vehicle records.");
+      }
     } finally {
       setLoading(false);
+      if (isManual) {
+        setTimeout(() => setIsRefreshing(false), 300);
+      }
     }
   };
 
@@ -173,11 +189,12 @@ export default function StudentParkVehicleView() {
         <div className="flex items-center gap-2">
           <button
             type="button"
-            onClick={() => fetchVehicles()}
-            className="px-3.5 py-2 bg-white border border-slate-300 hover:bg-slate-50 text-slate-700 font-bold text-xs rounded-lg flex items-center gap-1.5 shadow-xs transition cursor-pointer"
+            onClick={() => fetchVehicles(null, true)}
+            disabled={isRefreshing || loading}
+            className="px-3.5 py-2 bg-white border border-slate-300 hover:bg-slate-50 text-slate-700 font-bold text-xs rounded-lg flex items-center gap-1.5 shadow-xs transition cursor-pointer disabled:opacity-60"
           >
-            <RotateCcw className="w-3.5 h-3.5 text-slate-500" />
-            <span>Refresh</span>
+            <RotateCcw className={`w-3.5 h-3.5 text-slate-500 ${isRefreshing || loading ? "animate-spin" : ""}`} />
+            <span>{isRefreshing ? "Refreshing..." : "Refresh"}</span>
           </button>
 
           <Link

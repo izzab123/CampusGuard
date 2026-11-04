@@ -1,4 +1,5 @@
 "use client";
+import TopProfileBadge from "@/components/profile/TopProfileBadge";
 
 import React, { useState, useEffect } from "react";
 import Link from "next/link";
@@ -49,16 +50,21 @@ export default function SupervisorEscalationsPage() {
     loadIncidents();
   }, []);
 
-  const loadIncidents = async () => {
+  const loadIncidents = async (isManual = false) => {
     setIsLoading(true);
     try {
       const res = await fetch(API_ENDPOINTS.incidents.list);
       if (res.ok) {
         const data = await res.json();
         setIncidents(Array.isArray(data) ? data : []);
+        if (isManual) {
+          showNotification(`Escalation queue refreshed (${new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })}).`);
+        }
       }
     } catch {
-      // ignore
+      if (isManual) {
+        showNotification("Failed to refresh escalation queue.");
+      }
     } finally {
       setIsLoading(false);
     }
@@ -203,33 +209,13 @@ export default function SupervisorEscalationsPage() {
               </div>
             </Link>
 
-            <div className="flex items-center gap-2.5 pl-2 border-l border-slate-200">
-              <div className="w-9 h-9 rounded-full bg-[#1a44c2] text-white flex items-center justify-center font-bold text-xs overflow-hidden">
-                <Image
-                  src="/supervisor-elena.jpg"
-                  alt={displayName}
-                  width={36}
-                  height={36}
-                  className="w-full h-full object-cover"
-                />
-              </div>
-              <div className="hidden lg:flex flex-col text-left">
-                <span className="text-xs font-bold text-slate-900 leading-tight">
-                  {displayName}
-                </span>
-                <span className="text-[11px] text-slate-500 leading-tight">
-                  Badge #{displayBadge}
-                </span>
-              </div>
-              <button
-                type="button"
-                onClick={() => performLogout()}
-                title="Log out"
-                className="ml-1 p-2 rounded-lg text-slate-400 hover:text-red-600 hover:bg-red-50 transition cursor-pointer"
-              >
-                <LogOut className="w-4 h-4" />
-              </button>
-            </div>
+            <TopProfileBadge
+              profileUrl="/dashboard/supervisor/profile"
+              defaultFallbackPhoto="/supervisor-elena.jpg"
+              defaultName="Supervisor Elena Rostova"
+              defaultBadge="SS-104"
+              accentBg="bg-[#1a44c2]"
+            />
           </div>
         </div>
       </header>
@@ -305,6 +291,16 @@ export default function SupervisorEscalationsPage() {
             </div>
 
             <div className="flex items-center gap-2.5">
+              <button
+                type="button"
+                onClick={() => loadIncidents(true)}
+                disabled={isLoading}
+                className="px-3.5 py-2 bg-white border border-slate-200 hover:bg-slate-50 text-slate-700 font-bold text-xs rounded-xl flex items-center gap-1.5 shadow-2xs transition cursor-pointer disabled:opacity-60"
+              >
+                <RotateCcw className={`w-3.5 h-3.5 text-slate-500 ${isLoading ? "animate-spin" : ""}`} />
+                <span>{isLoading ? "Refreshing..." : "Refresh"}</span>
+              </button>
+
               <div className="relative">
                 <select
                   value={severityFilter}

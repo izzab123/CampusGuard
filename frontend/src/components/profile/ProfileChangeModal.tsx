@@ -94,7 +94,7 @@ export default function ProfileChangeModal({
   const handleApprove = async () => {
     if (!request?.id) return;
     if (!isAdmin) {
-      setErrorMsg("Only administrators have authority to approve student profile updates.");
+      setErrorMsg("Only administrators have authority to approve profile updates.");
       return;
     }
 
@@ -115,7 +115,7 @@ export default function ProfileChangeModal({
 
       const resData = await res.json();
       setRequest(resData.request);
-      setSuccessMsg("Student profile update approved! Notification sent to student.");
+      setSuccessMsg("Profile update approved! Notification sent to the user.");
       if (onApproved) {
         onApproved(resData.request);
       }
@@ -129,12 +129,12 @@ export default function ProfileChangeModal({
   const handleDeny = async () => {
     if (!request?.id) return;
     if (!isAdmin) {
-      setErrorMsg("Only administrators have authority to deny student profile updates.");
+      setErrorMsg("Only administrators have authority to deny profile updates.");
       return;
     }
 
     if (!denyReason.trim()) {
-      setErrorMsg("Please write the reason for denying this student profile change request.");
+      setErrorMsg("Please write the reason for denying this profile change request.");
       return;
     }
 
@@ -159,7 +159,7 @@ export default function ProfileChangeModal({
       const resData = await res.json();
       setRequest(resData.request);
       setShowDenyPrompt(false);
-      setSuccessMsg("Profile update denied. Changes have been reverted and notification with denial reason was dispatched to the student.");
+      setSuccessMsg("Profile update denied. Changes have been reverted and notification with denial reason was dispatched to the user.");
       if (onDenied) {
         onDenied(resData.request);
       }
@@ -185,7 +185,7 @@ export default function ProfileChangeModal({
             </div>
             <div>
               <h2 className="text-sm font-bold text-slate-900 leading-tight">
-                Review Student Profile Modification
+                Review Profile Modification
               </h2>
               <p className="text-[11px] text-slate-500">
                 Institutional Directory Clearance &amp; Verification Authority
@@ -229,7 +229,7 @@ export default function ProfileChangeModal({
               <div className="p-4 bg-slate-50 rounded-xl border border-slate-200 flex items-center justify-between">
                 <div>
                   <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">
-                    STUDENT IDENTITY
+                    USER IDENTITY
                   </span>
                   <div className="text-base font-extrabold text-slate-900 tracking-tight mt-0.5">
                     {request.newFullName || request.studentName}
@@ -395,7 +395,7 @@ export default function ProfileChangeModal({
                   <div className="flex items-center justify-between">
                     <span className="font-bold text-red-900 text-xs flex items-center gap-1.5">
                       <AlertTriangle className="w-3.5 h-3.5 text-red-600" />
-                      <span>Deny Student Profile Update</span>
+                      <span>Deny Profile Update</span>
                     </span>
                     <button
                       type="button"
@@ -406,7 +406,7 @@ export default function ProfileChangeModal({
                     </button>
                   </div>
                   <p className="text-[11px] text-red-800">
-                    When denying, you must provide a reason. A notification will be dispatched to the student with this reason, and their profile name and photo will be immediately restored to the previous values.
+                    When denying, you must provide a reason. A notification will be dispatched to the concerned person with this reason, and their profile name and photo will be immediately restored to the previous values.
                   </p>
                   <div>
                     <label className="text-[11px] font-bold text-red-900 block mb-1">
@@ -415,7 +415,7 @@ export default function ProfileChangeModal({
                     <input
                       type="text"
                       required
-                      placeholder="e.g. Unverified nickname, inappropriate picture, name mismatch with legal student registry"
+                      placeholder="e.g. Unverified nickname, inappropriate picture, credentials mismatch"
                       value={denyReason}
                       onChange={(e) => setDenyReason(e.target.value)}
                       className="w-full px-3 py-2 text-xs bg-white border border-red-300 rounded-lg focus:outline-none focus:ring-1 focus:ring-red-600 font-medium"

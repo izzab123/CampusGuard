@@ -1,4 +1,5 @@
 "use client";
+import TopProfileBadge from "@/components/profile/TopProfileBadge";
 
 import React, { useState, useEffect } from "react";
 import Link from "next/link";
@@ -154,14 +155,12 @@ export default function GuardNotificationsPage() {
           </div>
 
           <div className="flex items-center gap-3">
-            <button
-              type="button"
-              onClick={() => performLogout()}
-              className="p-2 rounded-lg text-slate-400 hover:text-red-600 transition cursor-pointer"
-              title="Log Out"
-            >
-              <LogOut className="w-4 h-4" />
-            </button>
+            <TopProfileBadge
+              profileUrl="/dashboard/guard/profile"
+              defaultFallbackPhoto="/officer-vance.jpg"
+              defaultName="Officer Marcus Vance"
+              defaultBadge="Shield #4082"
+            />
           </div>
         </div>
       </header>

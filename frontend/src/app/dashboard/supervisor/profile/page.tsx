@@ -1,4 +1,7 @@
 "use client";
+import PhotoModal from "@/components/profile/PhotoModal";
+import { Camera, Maximize2, Clock, AlertTriangle } from "lucide-react";
+import TopProfileBadge from "@/components/profile/TopProfileBadge";
 
 import React, { useState, useEffect } from "react";
 import Link from "next/link";
@@ -28,17 +31,69 @@ export default function SupervisorProfilePage() {
   const [department, setDepartment] = useState("");
   const [badgeNumber, setBadgeNumber] = useState("");
   const [phoneNumber, setPhoneNumber] = useState("");
+  const [profilePicture, setProfilePicture] = useState<string | null>(null);
+  const [isPhotoModalOpen, setIsPhotoModalOpen] = useState(false);
   const [shiftsCount, setShiftsCount] = useState(0);
   const [notice, setNotice] = useState<string | null>(null);
+  const fileInputRef = React.useRef<HTMLInputElement>(null);
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (!file.type.startsWith("image/")) {
+      setNotice("Please select a valid image file (PNG, JPG, WebP).");
+      return;
+    }
+
+    if (file.size > 2.5 * 1024 * 1024) {
+      setNotice("Profile photo must be less than 2.5MB in size.");
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.onload = () => {
+      if (typeof reader.result === "string") {
+        setProfilePicture(reader.result);
+        setNotice("Photo selected! Click 'Save Profile' to apply and send approval request to Admin.");
+      }
+    };
+    reader.readAsDataURL(file);
+  };
 
   useEffect(() => {
     const authUser = getStoredAuthUser();
     if (authUser) {
       setUser(authUser);
-      setName(authUser.name || "Supervisor Elena Rostova");
+      setName(authUser.fullName || authUser.name || "Supervisor Elena Rostova");
       setDepartment(authUser.department || "Operations Dispatch Control");
       setBadgeNumber(authUser.badgeNumber || "SS-104");
       setPhoneNumber(authUser.phoneNumber || "+1 (555) 018-9104");
+      setProfilePicture(authUser.profilePicture || null);
+
+      if (authUser.email) {
+        fetch(`${API_ENDPOINTS.auth.profile}?email=${encodeURIComponent(authUser.email)}`)
+          .then((res) => (res.ok ? res.json() : null))
+          .then((data) => {
+            if (data) {
+              const updated: AuthUser = {
+                ...authUser,
+                fullName: data.fullName || authUser.fullName,
+                name: data.fullName || authUser.name,
+                department: data.department || authUser.department,
+                badgeNumber: data.badgeNumber || authUser.badgeNumber,
+                phoneNumber: data.phoneNumber || authUser.phoneNumber,
+                profilePicture: data.profilePicture !== undefined ? data.profilePicture : authUser.profilePicture,
+                profileReviewStatus: data.profileReviewStatus || authUser.profileReviewStatus,
+              };
+              updateStoredAuthUser(updated);
+              setUser(updated);
+              setName(updated.fullName || updated.name || "Supervisor Elena Rostova");
+              setProfilePicture(updated.profilePicture || null);
+            }
+          })
+          .catch(() => {});
+      }
     }
 
     fetch(API_ENDPOINTS.shifts.list)
@@ -59,43 +114,39 @@ export default function SupervisorProfilePage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           email: user.email,
-          fullName: name,
-          name,
+          fullName: name.trim(),
+          name: name.trim(),
           department,
           badgeNumber,
           phoneNumber,
+          profilePicture: profilePicture || "",
         }),
       });
 
       if (res.ok) {
         const updated = await res.json();
-        updateStoredAuthUser({
-          fullName: updated.fullName || updated.name || name,
-          name: updated.name || updated.fullName || name,
+        const updatedUser: AuthUser = {
+          ...user,
+          fullName: updated.fullName || updated.name || name.trim(),
+          name: updated.name || updated.fullName || name.trim(),
           department: updated.department || department,
           badgeNumber: updated.badgeNumber || badgeNumber,
           phoneNumber: updated.phoneNumber || phoneNumber,
-        });
-        setUser((prev) =>
-          prev
-            ? {
-                ...prev,
-                fullName: updated.fullName || updated.name || name,
-                name: updated.name || updated.fullName || name,
-                department: updated.department || department,
-                badgeNumber: updated.badgeNumber || badgeNumber,
-                phoneNumber: updated.phoneNumber || phoneNumber,
-              }
-            : null
-        );
+          profilePicture: updated.profilePicture !== undefined ? updated.profilePicture : profilePicture,
+          profileReviewStatus: updated.profileReviewStatus || "PENDING_APPROVAL",
+        };
+        updateStoredAuthUser(updatedUser);
+        setUser(updatedUser);
         setIsEditing(false);
-        setNotice("Supervisor profile saved and synced to database.");
-        setTimeout(() => setNotice(null), 3000);
+        setNotice("Profile changes applied! Notification and approval request sent strictly to Admin.");
+        setTimeout(() => setNotice(null), 4000);
+      } else {
+        setNotice("Failed to update profile. Please try again.");
       }
     } catch {
-      updateStoredAuthUser({ name, department, badgeNumber, phoneNumber });
+      updateStoredAuthUser({ fullName: name, name, department, badgeNumber, phoneNumber, profilePicture: profilePicture || undefined });
       setIsEditing(false);
-      setNotice("Profile updated.");
+      setNotice("Profile updated locally.");
       setTimeout(() => setNotice(null), 3000);
     }
   };
@@ -177,33 +228,13 @@ export default function SupervisorProfilePage() {
               </div>
             </Link>
 
-            <div className="flex items-center gap-2.5 pl-2 border-l border-slate-200">
-              <div className="w-9 h-9 rounded-full bg-[#1a44c2] text-white flex items-center justify-center font-bold text-xs overflow-hidden">
-                <Image
-                  src="/supervisor-elena.jpg"
-                  alt={displayName}
-                  width={36}
-                  height={36}
-                  className="w-full h-full object-cover"
-                />
-              </div>
-              <div className="hidden lg:flex flex-col text-left">
-                <span className="text-xs font-bold text-slate-900 leading-tight">
-                  {displayName}
-                </span>
-                <span className="text-[11px] text-slate-500 leading-tight">
-                  Badge #{displayBadge}
-                </span>
-              </div>
-              <button
-                type="button"
-                onClick={() => performLogout()}
-                title="Log out"
-                className="ml-1 p-2 rounded-lg text-slate-400 hover:text-red-600 hover:bg-red-50 transition cursor-pointer"
-              >
-                <LogOut className="w-4 h-4" />
-              </button>
-            </div>
+            <TopProfileBadge
+              profileUrl="/dashboard/supervisor/profile"
+              defaultFallbackPhoto="/supervisor-elena.jpg"
+              defaultName="Supervisor Elena Rostova"
+              defaultBadge="SS-104"
+              accentBg="bg-[#1a44c2]"
+            />
           </div>
         </div>
       </header>
@@ -275,32 +306,146 @@ export default function SupervisorProfilePage() {
               </p>
             </div>
 
-            <button
-              type="button"
-              onClick={() => setIsEditing(!isEditing)}
-              className="px-3.5 py-2 bg-slate-100 hover:bg-slate-200 text-slate-800 font-bold text-xs rounded-xl flex items-center gap-2 transition cursor-pointer"
-            >
-              <Edit2 className="w-3.5 h-3.5" />
-              <span>{isEditing ? "Cancel" : "Edit Supervisor Profile"}</span>
-            </button>
+            <div className="flex items-center gap-2.5 shrink-0 flex-wrap">
+              {isEditing ? (
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setIsEditing(false)}
+                    className="px-3.5 py-2 bg-white border border-slate-300 hover:bg-slate-50 text-slate-700 font-bold text-xs rounded-lg transition cursor-pointer"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleSave}
+                    className="px-4 py-2 bg-[#1a44c2] hover:bg-[#1538a6] text-white font-bold text-xs rounded-lg flex items-center gap-1.5 shadow-xs transition cursor-pointer"
+                  >
+                    <Save className="w-3.5 h-3.5" />
+                    <span>Save Changes</span>
+                  </button>
+                </div>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => setIsEditing(true)}
+                  className="px-4 py-2 bg-[#1a44c2] hover:bg-[#1538a6] text-white font-bold text-xs rounded-lg flex items-center gap-2 shadow-xs transition cursor-pointer"
+                >
+                  <Edit2 className="w-3.5 h-3.5" />
+                  <span>Edit Profile</span>
+                </button>
+              )}
+
+              <button
+                type="button"
+                onClick={() => performLogout()}
+                className="px-3.5 py-2 bg-white border border-slate-300 hover:bg-red-50 text-red-600 font-bold text-xs rounded-lg flex items-center gap-1.5 shadow-xs transition cursor-pointer"
+              >
+                <LogOut className="w-3.5 h-3.5" />
+                <span>Log Out</span>
+              </button>
+            </div>
           </div>
 
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
             {/* LEFT COLUMN */}
             <div className="lg:col-span-5 space-y-6">
+              {/* Notice */}
+              {notice && (
+                <div className="p-3.5 bg-blue-50 border border-blue-200 rounded-xl text-xs font-semibold text-blue-900 flex items-center justify-between shadow-xs">
+                  <span>{notice}</span>
+                  <button
+                    type="button"
+                    onClick={() => setNotice(null)}
+                    className="text-blue-700 hover:text-blue-900 font-bold ml-2 cursor-pointer"
+                  >
+                    ✕
+                  </button>
+                </div>
+              )}
+
+              {/* Status Indicator Banners */}
+              {user?.profileReviewStatus === "PENDING_APPROVAL" && (
+                <div className="p-3.5 bg-amber-50 border border-amber-200 rounded-xl text-xs font-semibold text-amber-900 flex items-center gap-2 shadow-xs">
+                  <Clock className="w-4 h-4 text-amber-600 animate-pulse shrink-0" />
+                  <span>Profile changes submitted — Pending administrative approval by Admin.</span>
+                </div>
+              )}
+              {user?.profileReviewStatus === "APPROVED" && (
+                <div className="p-3.5 bg-emerald-50 border border-emerald-200 rounded-xl text-xs font-semibold text-emerald-900 flex items-center gap-2 shadow-xs">
+                  <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+                  <span>Profile changes officially approved and verified by Admin.</span>
+                </div>
+              )}
+              {user?.profileReviewStatus === "DENIED" && (
+                <div className="p-3.5 bg-red-50 border border-red-200 rounded-xl text-xs font-semibold text-red-900 flex items-center gap-2 shadow-xs">
+                  <AlertTriangle className="w-4 h-4 text-red-600 shrink-0" />
+                  <span>Previous profile update request was reviewed and denied. Profile details were restored.</span>
+                </div>
+              )}
               <div className="bg-white border border-slate-200/90 rounded-2xl p-5 shadow-2xs space-y-4">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2">
                     <ShieldCheck className="w-5 h-5 text-[#1a44c2]" />
                     <span className="font-extrabold text-sm text-slate-900">CampusGuard Watch</span>
                   </div>
-                  <span className="bg-blue-100 text-blue-800 text-[10px] font-bold px-2.5 py-0.5 rounded-full uppercase">
-                    ● Executive Supervisor
-                  </span>
+                  <div className="flex items-center gap-2">
+                    <span className="bg-blue-100 text-blue-800 text-[10px] font-bold px-2.5 py-0.5 rounded-full uppercase">
+                      ● Executive Supervisor
+                    </span>
+                    {!isEditing && (
+                      <button
+                        type="button"
+                        onClick={() => setIsEditing(true)}
+                        className="px-3 py-1 bg-blue-50 hover:bg-blue-100 text-[#1a44c2] border border-blue-200 text-xs font-bold rounded-lg flex items-center gap-1 transition cursor-pointer shadow-2xs"
+                      >
+                        <Edit2 className="w-3 h-3" />
+                        <span>Edit Profile</span>
+                      </button>
+                    )}
+                  </div>
                 </div>
 
                 {isEditing ? (
                   <form onSubmit={handleSave} className="space-y-3 pt-2 text-xs">
+                    {/* Photo Edit Preview & Upload Button */}
+                    <div className="flex items-center gap-4 p-3 bg-slate-50 rounded-xl border border-slate-200/80">
+                      <button
+                        type="button"
+                        onClick={() => setIsPhotoModalOpen(true)}
+                        title="Click to view full photo"
+                        className="relative w-16 h-16 rounded-xl overflow-hidden ring-2 ring-blue-700/20 bg-slate-100 shrink-0 group cursor-pointer"
+                      >
+                        {profilePicture ? (
+                          <img src={profilePicture} alt={name || displayName} className="w-full h-full object-cover" />
+                        ) : (
+                          <Image src="/supervisor-elena.jpg" alt={displayName} width={64} height={64} className="w-full h-full object-cover" />
+                        )}
+                        <div className="absolute inset-0 bg-slate-900/30 opacity-0 group-hover:opacity-100 transition flex items-center justify-center text-white">
+                          <Maximize2 className="w-4 h-4" />
+                        </div>
+                      </button>
+
+                      <div className="space-y-1">
+                        <div className="text-xs font-bold text-slate-900">Profile Photo</div>
+                        <button
+                          type="button"
+                          onClick={() => fileInputRef.current?.click()}
+                          className="px-3 py-1.5 bg-blue-50 hover:bg-blue-100 text-[#1a44c2] border border-blue-200 text-xs font-bold rounded-lg flex items-center gap-1.5 shadow-2xs transition cursor-pointer"
+                        >
+                          <Camera className="w-3.5 h-3.5" />
+                          <span>Upload New Photo</span>
+                        </button>
+                        <input
+                          ref={fileInputRef}
+                          type="file"
+                          accept="image/*"
+                          onChange={handleFileChange}
+                          className="hidden"
+                        />
+                      </div>
+                    </div>
+
                     <div>
                       <label className="font-bold text-slate-600 block mb-1">Supervisor Name</label>
                       <input
@@ -360,25 +505,60 @@ export default function SupervisorProfilePage() {
                 ) : (
                   <>
                     <div className="flex items-center gap-4 pt-1">
-                      <div className="w-16 h-16 rounded-full overflow-hidden border-2 border-white shadow-md bg-slate-200 shrink-0">
-                        <Image
-                          src="/supervisor-elena.jpg"
-                          alt={displayName}
-                          width={64}
-                          height={64}
-                          className="w-full h-full object-cover"
-                        />
+                      <div className="flex flex-col items-center gap-1.5">
+                        <button
+                          type="button"
+                          onClick={() => setIsPhotoModalOpen(true)}
+                          title="Click to view full photo"
+                          className="relative w-20 h-20 rounded-2xl overflow-hidden ring-2 ring-blue-700/20 bg-slate-100 shrink-0 group cursor-pointer focus:outline-none focus:ring-2 focus:ring-blue-600 transition hover:shadow-md"
+                        >
+                          {profilePicture ? (
+                            <img
+                              src={profilePicture}
+                              alt={displayName}
+                              className="w-full h-full object-cover group-hover:scale-105 transition duration-200"
+                            />
+                          ) : (
+                            <Image
+                              src="/supervisor-elena.jpg"
+                              alt={displayName}
+                              width={80}
+                              height={80}
+                              className="w-full h-full object-cover group-hover:scale-105 transition duration-200"
+                              onError={(e) => {
+                                (e.target as HTMLElement).style.display = "none";
+                              }}
+                            />
+                          )}
+                          <div className="absolute inset-0 bg-slate-900/40 opacity-0 group-hover:opacity-100 transition flex items-center justify-center text-white">
+                            <Maximize2 className="w-5 h-5 drop-shadow-md" />
+                          </div>
+                          <div className="absolute bottom-1 right-1 w-3.5 h-3.5 bg-emerald-500 rounded-full border-2 border-white"></div>
+                        </button>
                       </div>
-                      <div>
-                        <h2 className="text-lg font-extrabold text-slate-900 leading-tight">
+
+                      <div className="space-y-1">
+                        <h2 className="text-xl font-extrabold text-slate-900 leading-tight">
                           {displayName}
                         </h2>
                         <div className="text-xs font-bold text-[#1a44c2]">
                           Shift Supervisor &amp; Watch Commander
                         </div>
-                        <div className="text-[11px] text-slate-500 mt-0.5">
+                        <div className="text-[11px] text-slate-500">
                           Badge #{displayBadge}
                         </div>
+                        {!isEditing && (
+                          <div className="pt-2">
+                            <button
+                              type="button"
+                              onClick={() => setIsEditing(true)}
+                              className="px-3 py-1.5 bg-[#1a44c2] hover:bg-[#1538a6] text-white font-bold text-xs rounded-lg flex items-center gap-1.5 shadow-xs transition cursor-pointer"
+                            >
+                              <Edit2 className="w-3.5 h-3.5" />
+                              <span>Edit Profile &amp; Photo</span>
+                            </button>
+                          </div>
+                        )}
                       </div>
                     </div>
 
@@ -440,6 +620,19 @@ export default function SupervisorProfilePage() {
           </div>
         </main>
       </div>
+      {/* Photo Modal */}
+      <PhotoModal
+        isOpen={isPhotoModalOpen}
+        onClose={() => setIsPhotoModalOpen(false)}
+        photoSrc={profilePicture}
+        defaultFallback="/supervisor-elena.jpg"
+        name={name || displayName}
+        badge={`Badge #${displayBadge}`}
+        onEditPhoto={() => {
+          setIsEditing(true);
+          setTimeout(() => fileInputRef.current?.click(), 100);
+        }}
+      />
     </div>
   );
 }

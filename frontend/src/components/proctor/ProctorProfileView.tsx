@@ -1,4 +1,6 @@
 "use client";
+import PhotoModal from "@/components/profile/PhotoModal";
+import { Camera, Maximize2, Clock, AlertTriangle } from "lucide-react";
 
 import React, { useState, useEffect } from "react";
 import Image from "next/image";
@@ -21,13 +23,64 @@ export default function ProctorProfileView() {
   const [editing, setEditing] = useState(false);
   const [fullName, setFullName] = useState("");
   const [department, setDepartment] = useState("");
+  const [profilePicture, setProfilePicture] = useState<string | null>(null);
+  const [isPhotoModalOpen, setIsPhotoModalOpen] = useState(false);
+  const fileInputRef = React.useRef<HTMLInputElement>(null);
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (!file.type.startsWith("image/")) {
+      handleAction("Please select a valid image file (PNG, JPG, WebP).");
+      return;
+    }
+
+    if (file.size > 2.5 * 1024 * 1024) {
+      handleAction("Profile photo must be less than 2.5MB in size.");
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.onload = () => {
+      if (typeof reader.result === "string") {
+        setProfilePicture(reader.result);
+        handleAction("Photo selected! Click 'Save Changes' to apply and send approval request to Admin.");
+      }
+    };
+    reader.readAsDataURL(file);
+  };
 
   useEffect(() => {
     const stored = getStoredAuthUser();
-    setUser(stored);
     if (stored) {
-      setFullName(stored.fullName || "");
-      setDepartment(stored.department || "");
+      setUser(stored);
+      setFullName(stored.fullName || stored.name || "Dr. Arthur Vance");
+      setDepartment(stored.department || "Dean of Student Welfare");
+      setProfilePicture(stored.profilePicture || null);
+
+      if (stored.email) {
+        fetch(`${API_ENDPOINTS.auth.profile}?email=${encodeURIComponent(stored.email)}`)
+          .then((res) => (res.ok ? res.json() : null))
+          .then((data) => {
+            if (data) {
+              const updated: AuthUser = {
+                ...stored,
+                fullName: data.fullName || stored.fullName,
+                name: data.fullName || stored.name,
+                department: data.department || stored.department,
+                badgeNumber: data.badgeNumber || stored.badgeNumber,
+                profilePicture: data.profilePicture !== undefined ? data.profilePicture : stored.profilePicture,
+                profileReviewStatus: data.profileReviewStatus || stored.profileReviewStatus,
+              };
+              saveAuthUser(updated);
+              setUser(updated);
+              setFullName(updated.fullName || updated.name || "Dr. Arthur Vance");
+              setProfilePicture(updated.profilePicture || null);
+            }
+          })
+          .catch(() => {});
+      }
     }
   }, []);
 
@@ -44,20 +97,36 @@ export default function ProctorProfileView() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           email: user.email,
-          fullName,
+          fullName: fullName.trim(),
+          name: fullName.trim(),
           department,
+          profilePicture: profilePicture || "",
         }),
       });
 
       if (res.ok) {
-        const updatedUser: AuthUser = { ...user, fullName, department };
+        const updated = await res.json();
+        const updatedUser: AuthUser = {
+          ...user,
+          fullName: updated.fullName || updated.name || fullName.trim(),
+          name: updated.name || updated.fullName || fullName.trim(),
+          department: updated.department || department,
+          profilePicture: updated.profilePicture !== undefined ? updated.profilePicture : profilePicture,
+          profileReviewStatus: updated.profileReviewStatus || "PENDING_APPROVAL",
+        };
         saveAuthUser(updatedUser);
         setUser(updatedUser);
         setEditing(false);
-        handleAction("Proctor authority profile successfully updated.");
+        handleAction("Profile changes applied! Notification and approval request sent strictly to Admin.");
+      } else {
+        handleAction("Failed to update profile. Please try again.");
       }
     } catch {
-      handleAction("Profile update cached locally.");
+      const updatedUser: AuthUser = { ...user, fullName, department, profilePicture: profilePicture || undefined };
+      saveAuthUser(updatedUser);
+      setUser(updatedUser);
+      setEditing(false);
+      handleAction("Profile updated locally.");
     }
   };
 
@@ -122,22 +191,80 @@ export default function ProctorProfileView() {
         </div>
       </div>
 
+      {/* Status Indicator Banners */}
+      {user?.profileReviewStatus === "PENDING_APPROVAL" && (
+        <div className="p-3.5 bg-amber-50 border border-amber-200 rounded-xl text-xs font-semibold text-amber-900 flex items-center gap-2 shadow-xs">
+          <Clock className="w-4 h-4 text-amber-600 animate-pulse shrink-0" />
+          <span>Profile changes submitted — Pending administrative approval by Admin.</span>
+        </div>
+      )}
+      {user?.profileReviewStatus === "APPROVED" && (
+        <div className="p-3.5 bg-emerald-50 border border-emerald-200 rounded-xl text-xs font-semibold text-emerald-900 flex items-center gap-2 shadow-xs">
+          <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+          <span>Profile changes officially approved and verified by Admin.</span>
+        </div>
+      )}
+      {user?.profileReviewStatus === "DENIED" && (
+        <div className="p-3.5 bg-red-50 border border-red-200 rounded-xl text-xs font-semibold text-red-900 flex items-center gap-2 shadow-xs">
+          <AlertTriangle className="w-4 h-4 text-red-600 shrink-0" />
+          <span>Previous profile update request was reviewed and denied. Profile details were restored.</span>
+        </div>
+      )}
+
       {/* DOSSIER CARD */}
       <div className="bg-white border border-slate-200 rounded-2xl p-6 shadow-xs space-y-6">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div className="flex items-center gap-4">
-            <div className="relative w-16 h-16 rounded-2xl overflow-hidden ring-2 ring-purple-600/20 bg-slate-100 shrink-0">
-              <Image
-                src="/proctor-vance.jpg"
-                alt="Dr. Arthur Vance"
-                width={64}
-                height={64}
-                className="w-full h-full object-cover"
-                onError={(e) => {
-                  (e.target as HTMLElement).style.display = "none";
-                }}
-              />
-              <div className="absolute bottom-0 right-0 w-3.5 h-3.5 bg-emerald-500 rounded-full border-2 border-white"></div>
+            <div className="flex flex-col items-center gap-1.5">
+              <button
+                type="button"
+                onClick={() => setIsPhotoModalOpen(true)}
+                title="Click to view full photo"
+                className="relative w-20 h-20 rounded-2xl overflow-hidden ring-2 ring-purple-600/20 bg-slate-100 shrink-0 group cursor-pointer focus:outline-none focus:ring-2 focus:ring-purple-600 transition hover:shadow-md"
+              >
+                {profilePicture ? (
+                  <img
+                    src={profilePicture}
+                    alt={fullName || "Proctor"}
+                    className="w-full h-full object-cover group-hover:scale-105 transition duration-200"
+                  />
+                ) : (
+                  <Image
+                    src="/proctor-vance.jpg"
+                    alt="Dr. Arthur Vance"
+                    width={80}
+                    height={80}
+                    className="w-full h-full object-cover group-hover:scale-105 transition duration-200"
+                    onError={(e) => {
+                      (e.target as HTMLElement).style.display = "none";
+                    }}
+                  />
+                )}
+                <div className="absolute inset-0 bg-slate-900/40 opacity-0 group-hover:opacity-100 transition flex items-center justify-center text-white">
+                  <Maximize2 className="w-5 h-5 drop-shadow-md" />
+                </div>
+                <div className="absolute bottom-1 right-1 w-3.5 h-3.5 bg-emerald-500 rounded-full border-2 border-white"></div>
+              </button>
+
+              {editing && (
+                <div>
+                  <button
+                    type="button"
+                    onClick={() => fileInputRef.current?.click()}
+                    className="px-2.5 py-1 bg-purple-50 hover:bg-purple-100 text-purple-700 border border-purple-200 text-[11px] font-bold rounded-lg flex items-center gap-1 shadow-2xs transition cursor-pointer"
+                  >
+                    <Camera className="w-3.5 h-3.5" />
+                    <span>Change Photo</span>
+                  </button>
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    accept="image/*"
+                    onChange={handleFileChange}
+                    className="hidden"
+                  />
+                </div>
+              )}
             </div>
 
             <div className="space-y-1">
@@ -196,6 +323,16 @@ export default function ProctorProfileView() {
           </div>
         </div>
       </div>
+      {/* Photo Modal */}
+      <PhotoModal
+        isOpen={isPhotoModalOpen}
+        onClose={() => setIsPhotoModalOpen(false)}
+        photoSrc={profilePicture}
+        defaultFallback="/proctor-vance.jpg"
+        name={fullName || "Dr. Arthur Vance"}
+        badge={user?.badgeNumber || "DSW Executive Dean #PR-109"}
+        onEditPhoto={editing ? () => fileInputRef.current?.click() : undefined}
+      />
     </div>
   );
 }
